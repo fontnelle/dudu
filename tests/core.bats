@@ -119,7 +119,7 @@ EOF
 
 @test "a Homebrew install is updated by brew" {
   DUDU_ROOT=/opt/homebrew/Cellar/dudu/0.1.0/libexec
-  [ "$(update_command)" = "brew upgrade dudu" ]
+  [ "$(update_command)" = "brew update && brew upgrade dudu" ]
   DUDU_ROOT=$HOME/.local/lib/dudu
   [ "$(update_command)" = "dudu update" ]
 }

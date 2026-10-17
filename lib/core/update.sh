@@ -51,7 +51,9 @@ stable_root() {
   if installed_by_brew; then printf '%s/opt/dudu/libexec' "${DUDU_ROOT%%/Cellar/dudu/*}"; else printf '%s' "$DUDU_ROOT"; fi
 }
 
-update_command() { if installed_by_brew; then printf 'brew upgrade dudu'; else printf 'dudu update'; fi; }
+# Homebrew reads a tap's new formulas at most once a day: "brew upgrade dudu" alone right
+# after a release says the old version is current. brew update only refreshes the lists.
+update_command() { if installed_by_brew; then printf 'brew update && brew upgrade dudu'; else printf 'dudu update'; fi; }
 
 update_notice() {
   [ -f "$DUDU_LATEST_CACHE" ] || return 0
@@ -64,8 +66,8 @@ update_notice() {
 
 cmd_update() {
   if installed_by_brew; then
-    step "$(t "dudu was installed with Homebrew, running %s" "brew upgrade dudu")"
-    brew upgrade dudu
+    step "$(t "dudu was installed with Homebrew, running %s" "$(update_command)")"
+    brew update --quiet && brew upgrade dudu
     return
   fi
   # A git checkout updates itself with git.
