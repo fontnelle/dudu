@@ -91,7 +91,7 @@ folder_materialize() { # <dir>
   has brctl || return 0
   brctl download "$1" >/dev/null 2>&1 || true
   local waited=0
-  while find "$1" -name '.*.icloud' 2>/dev/null | grep -q .; do
+  while [ -n "$(find "$1" -name '.*.icloud' -print -quit 2>/dev/null)" ]; do
     [ $waited -ge 120 ] && return 1
     sleep 2
     waited=$((waited + 2))

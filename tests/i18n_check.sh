@@ -73,7 +73,8 @@ for f in lib/i18n/*.sh; do
   [ -z "$dups" ] || fail "$lang: entries written twice: $dups"
   while IFS= read -r m; do
     [ -n "$m" ] || continue
-    printf '%s\n' "$keys" | grep -qxF -- "$m" || { fail "$lang: missing: $m"; continue; }
+    # A here-string, not a pipe: grep -q stops early and pipefail would count printf's SIGPIPE.
+    grep -qxF -- "$m" <<< "$keys" || { fail "$lang: missing: $m"; continue; }
     eval "id=\"$m\""
     # shellcheck disable=SC2154
     I18N_MSG=""
@@ -83,7 +84,7 @@ for f in lib/i18n/*.sh; do
   done <<< "$msgids"
   while IFS= read -r k; do
     [ -n "$k" ] || continue
-    printf '%s\n' "$msgids" | grep -qxF -- "$k" || fail "$lang: not used by the code anymore: $k"
+    grep -qxF -- "$k" <<< "$msgids" || fail "$lang: not used by the code anymore: $k"
   done <<< "$keys"
 done
 

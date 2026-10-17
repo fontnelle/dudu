@@ -119,7 +119,7 @@ Library/Application Support/iTerm2/DynamicProfiles/*"
         while IFS= read -r key; do
           val=$(terminal_plist_value "$p" "$key")
           [ -n "$val" ] || continue
-          if printf '%s' "$val" | grep -q '<redacted-by-dudu>'; then
+          if case "$val" in *'<redacted-by-dudu>'*) true ;; *) false ;; esac; then
             warn "$(t "%s: kept your current \"%s\" (the backup had a masked secret there)" "$d" "$key")"
             continue
           fi

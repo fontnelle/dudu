@@ -7,7 +7,7 @@ setup() {
   load_dudu
   unset DUDU_LANG LANGUAGE LC_ALL LC_MESSAGES LANG
   # macOS answers from System Settings: keep this machine's own choice out of the tests.
-  # shellcheck disable=SC2329 # called by i18n_init
+  # shellcheck disable=SC2317,SC2329 # called by i18n_init
   i18n_apple_language() { return 1; }
 }
 
@@ -52,7 +52,7 @@ lang_of() { i18n_init; printf '%s %s' "$DUDU_LANG_ACTIVE" "$DUDU_LANG_SOURCE"; }
 }
 
 @test "with no locale at all, macOS's language is used" {
-  # shellcheck disable=SC2329
+  # shellcheck disable=SC2317,SC2329
   i18n_apple_language() { printf 'es-419'; }
   [ "$(lang_of)" = "es system" ]
 }
@@ -89,6 +89,9 @@ lang_of() { i18n_init; printf '%s %s' "$DUDU_LANG_ACTIVE" "$DUDU_LANG_SOURCE"; }
 }
 
 @test "pad counts characters, not bytes" {
+  i18n_init # as dudu does: picks a UTF-8 locale when the system has none set
+  local s="é"
+  [ "${#s}" -eq 1 ] || skip "no UTF-8 locale on this machine"
   [ "$(pad "Configurações" 16)|" = "Configurações   |" ]
   [ "$(pad "Settings" 16)|" = "Settings        |" ]
   [ "$(pad "a long label here" 4)|" = "a long label here|" ]

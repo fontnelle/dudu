@@ -51,7 +51,7 @@ macos_restore() {
   local domain key type value flag current changed=""
   while IFS='|' read -r domain key type value; do
     # Only the preferences dudu knows, with a plain type: a backup cannot write anything else.
-    if ! printf '%s\n' "$MACOS_DEFAULTS" | grep -qxF "$domain $key" ||
+    if ! grep -qxF "$domain $key" <<< "$MACOS_DEFAULTS" ||
        ! case "$type" in boolean|integer|float|string) true ;; *) false ;; esac; then
       warn "$(t "ignored unexpected preference in the backup: %s" "$(safe_text "$domain $key")")"
       continue

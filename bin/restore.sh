@@ -8,7 +8,8 @@ pick_host() {
   hosts=$(dest_all_hosts)
   [ -n "$hosts" ] || return 1
   host=$(backup_host)
-  if printf '%s\n' "$hosts" | grep -qxF "$host"; then printf '%s' "$host"; return 0; fi
+  # Not printf | grep -q: under pipefail, grep stopping early can fail the pipeline.
+  if grep -qxF -- "$host" <<< "$hosts"; then printf '%s' "$host"; return 0; fi
   n=$(printf '%s\n' "$hosts" | grep -c .)
   if [ "$n" -eq 1 ]; then printf '%s' "$hosts" | head -1; return 0; fi
   # Without a terminal, never guess which machine's dotfiles to install.

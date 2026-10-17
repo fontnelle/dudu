@@ -43,7 +43,7 @@ npm_restore() {
   [ -n "${DUDU_DRY_RUN:-}" ] || node_load_nvm 2>/dev/null
   # shellcheck disable=SC2013
   for version in $(awk '{ print $1 }' "$1/globals.txt" | sort -u); do
-    printf '%s\n' "$version" | pkg_filter | grep -q . || continue
+    [ -n "$(printf '%s\n' "$version" | pkg_filter)" ] || continue
     awk -v v="$version" '$1 == v { print $2 }' "$1/globals.txt" | pkg_filter > "$wanted"
     if [ "$version" = default ]; then
       pkgs=$(npm_list_modules "$(npm root -g 2>/dev/null)" | missing_from "$wanted")
