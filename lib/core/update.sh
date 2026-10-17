@@ -3,7 +3,6 @@
 
 DUDU_LATEST_CACHE="$DUDU_CACHE_DIR/latest_version"
 
-# True when version $1 is newer than $2 (x.y.z).
 # True when version $1 is newer than $2. A pre-release (1.2.0-rc1) is older than its
 # release (1.2.0), and pre-releases compare by their suffix.
 version_gt() {
@@ -43,16 +42,32 @@ check_for_updates_bg() {
   disown 2>/dev/null || true
 }
 
+# Homebrew keeps dudu in its Cellar and updates it itself.
+installed_by_brew() { case "$DUDU_ROOT" in */Cellar/dudu/*) return 0 ;; esac; return 1; }
+
+# Where dudu lives, by a path that survives updates: Homebrew's opt/ link, not the Cellar
+# folder of one version.
+stable_root() {
+  if installed_by_brew; then printf '%s/opt/dudu/libexec' "${DUDU_ROOT%%/Cellar/dudu/*}"; else printf '%s' "$DUDU_ROOT"; fi
+}
+
+update_command() { if installed_by_brew; then printf 'brew upgrade dudu'; else printf 'dudu update'; fi; }
+
 update_notice() {
   [ -f "$DUDU_LATEST_CACHE" ] || return 0
   local latest
   latest=$(cat "$DUDU_LATEST_CACHE")
   if [ -n "$latest" ] && version_gt "$latest" "$VERSION"; then
-    printf '\n%sUpdate %s available, run %sdudu update%s\n' "$NC" "$latest" "$GREEN" "$NC"
+    printf '\n%sUpdate %s available, run %s%s%s\n' "$NC" "$latest" "$GREEN" "$(update_command)" "$NC"
   fi
 }
 
 cmd_update() {
+  if installed_by_brew; then
+    step "dudu was installed with Homebrew, running brew upgrade dudu"
+    brew upgrade dudu
+    return
+  fi
   # A git checkout updates itself with git.
   if [ -d "$DUDU_ROOT/.git" ]; then
     step "dudu is a git checkout, pulling $DUDU_ROOT"
@@ -91,7 +106,7 @@ cmd_completion() {
     bash) cat "$DUDU_ROOT/completions/dudu.bash" ;;
     highlight)
       # --path: the file itself, to source from ~/.zshrc without starting dudu in every shell.
-      if [ "${2:-}" = --path ]; then printf '%s\n' "$DUDU_ROOT/completions/dudu.zsh"
+      if [ "${2:-}" = --path ]; then printf '%s\n' "$(stable_root)/completions/dudu.zsh"
       else cat "$DUDU_ROOT/completions/dudu.zsh"; fi ;;
     *)
       echo "Usage: dudu completion zsh|bash|highlight"

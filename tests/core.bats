@@ -116,3 +116,15 @@ EOF
   run ! version_gt 1.2.0 1.2.0
   run ! version_gt v0.9.0 0.10.0
 }
+
+@test "a Homebrew install is updated by brew" {
+  DUDU_ROOT=/opt/homebrew/Cellar/dudu/0.1.0/libexec
+  [ "$(update_command)" = "brew upgrade dudu" ]
+  DUDU_ROOT=$HOME/.local/lib/dudu
+  [ "$(update_command)" = "dudu update" ]
+}
+
+@test "the highlight path survives brew upgrades" {
+  DUDU_ROOT=/opt/homebrew/Cellar/dudu/0.1.0/libexec
+  [ "$(stable_root)" = "/opt/homebrew/opt/dudu/libexec" ]
+}

@@ -14,6 +14,9 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-latest
+    env:
+      # A fine-grained token with Contents: write on fontnelle/homebrew-tap only.
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - name: Check tag matches VERSION
@@ -30,3 +33,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+      - name: Update the Homebrew tap
+        if: env.TAP_TOKEN != ''
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          sha=$(cut -d' ' -f1 dist/SHA256SUMS)
+          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/fontnelle/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          sed -e "s/@VERSION@/$v/g" -e "s/@SHA256@/$sha/" packaging/homebrew/dudu.rb > tap/Formula/dudu.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/dudu.rb
+          git commit -m "⬆️ build: dudu $v"
+          git push
