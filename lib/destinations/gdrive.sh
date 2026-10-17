@@ -32,7 +32,7 @@ gdrive_save() {
     stamp=$(basename "$1")
     rclone copy "$1" "$remote/$stamp" || return 1
     # Checked against the local bundle before "latest" moves and anything old is removed.
-    rclone check "$1" "$remote/$stamp" --one-way >/dev/null 2>&1 || { err "The copy on $remote does not match"; return 1; }
+    rclone check "$1" "$remote/$stamp" --one-way >/dev/null 2>&1 || { err "$(t "The copy on %s does not match" "$remote")"; return 1; }
     if ! manifest_is_partial "$1/manifest.json"; then
       printf '%s\n' "$stamp" | rclone rcat "$remote/latest" || return 1
     fi
@@ -45,7 +45,7 @@ gdrive_save() {
     return 0
   fi
   local root
-  root=$(gdrive_root) || { err "Google Drive folder not found. Set it with: dudu config"; return 1; }
+  root=$(gdrive_root) || { err "$(t "Google Drive folder not found. Set it with: %s" "dudu config")"; return 1; }
   folder_save "$root" "$1" "$2"
 }
 

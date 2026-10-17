@@ -58,40 +58,40 @@ update_notice() {
   local latest
   latest=$(cat "$DUDU_LATEST_CACHE")
   if [ -n "$latest" ] && version_gt "$latest" "$VERSION"; then
-    printf '\n%sUpdate %s available, run %s%s%s\n' "$NC" "$latest" "$GREEN" "$(update_command)" "$NC"
+    printf '\n%s%s %s%s%s\n' "$NC" "$(t "Update %s available, run" "$latest")" "$GREEN" "$(update_command)" "$NC"
   fi
 }
 
 cmd_update() {
   if installed_by_brew; then
-    step "dudu was installed with Homebrew, running brew upgrade dudu"
+    step "$(t "dudu was installed with Homebrew, running %s" "brew upgrade dudu")"
     brew upgrade dudu
     return
   fi
   # A git checkout updates itself with git.
   if [ -d "$DUDU_ROOT/.git" ]; then
-    step "dudu is a git checkout, pulling $DUDU_ROOT"
-    git -C "$DUDU_ROOT" pull --ff-only && ok "Updated"
+    step "$(t "dudu is a git checkout, pulling %s" "$DUDU_ROOT")"
+    git -C "$DUDU_ROOT" pull --ff-only && ok "$(t "Updated")"
     return
   fi
   local latest bin_dir
   latest=$(latest_version)
   if [ -z "$latest" ]; then
-    err "Could not reach GitHub to check the latest version"
+    err "$(t "Could not reach GitHub to check the latest version")"
     return 1
   fi
   if ! version_gt "$latest" "$VERSION"; then
-    ok "Already on the latest version ($VERSION)"
+    ok "$(t "Already on the latest version (%s)" "$VERSION")"
     return 0
   fi
   bin_dir=$(dirname "$(command -v dudu 2>/dev/null || echo "$HOME/.local/bin/dudu")")
-  step "Updating dudu $VERSION → $latest"
+  step "$(t "Updating dudu %s → %s" "$VERSION" "$latest")"
   # The installer of that release (not main), downloaded whole before it runs.
   local installer
   installer=$(mktemp)
   if ! curl -fsSL "https://raw.githubusercontent.com/$DUDU_REPO/v$latest/install.sh" -o "$installer"; then
     rm -f "$installer"
-    err "Could not download the installer of $latest"
+    err "$(t "Could not download the installer of %s" "$latest")"
     return 1
   fi
   bash "$installer" --prefix "$bin_dir" "$latest" && printf '%s\n' "$latest" > "$DUDU_LATEST_CACHE"
@@ -109,7 +109,7 @@ cmd_completion() {
       if [ "${2:-}" = --path ]; then printf '%s\n' "$(stable_root)/completions/dudu.zsh"
       else cat "$DUDU_ROOT/completions/dudu.zsh"; fi ;;
     *)
-      echo "Usage: dudu completion zsh|bash|highlight"
+      printf '%s: dudu completion zsh|bash|highlight\n' "$(t "Usage")"
       echo
       echo "  zsh:  dudu completion zsh > \"\${fpath[1]}/_dudu\""
       echo "  bash: echo 'eval \"\$(dudu completion bash)\"' >> ~/.bashrc"

@@ -33,7 +33,7 @@ npm_backup() {
     npm_list_modules "$root" | sed 's|^|default |' >> "$1/globals.txt"
   fi
   save_file "$HOME/.npmrc" "$1/home"
-  summary "$1" "$(count_lines "$1/globals.txt") global packages"
+  summary "$1" "$(tn "%d global package" "%d global packages" "$(count_lines "$1/globals.txt")")"
 }
 
 npm_restore() {
@@ -54,10 +54,10 @@ npm_restore() {
       # shellcheck disable=SC2086
       [ -n "$pkgs" ] && act env PATH="$dir/versions/node/$version/bin:$PATH" npm install -g $pkgs
     else
-      warn "node $version is not installed, skipping its globals: $(tr '\n' ' ' < "$wanted")"
+      warn "$(t "node %s is not installed, skipping its globals: %s" "$version" "$(tr '\n' ' ' < "$wanted")")"
       continue
     fi
-    [ -z "$pkgs" ] && dim "  = node $version globals"
+    [ -z "$pkgs" ] && dim "  = $(t "node %s globals" "$version")"
   done
   rm -f "$wanted"
   # After the installs: a .npmrc pointing at another registry must not decide where they come from.

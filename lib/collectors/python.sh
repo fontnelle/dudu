@@ -18,15 +18,15 @@ python_backup() {
   fi
   if has pipx; then
     pipx list --short 2>/dev/null | awk '{ print $1 }' > "$1/pipx.txt" || return 1
-    parts="$parts$(count_lines "$1/pipx.txt") pipx, "
+    parts="$parts$(t "%d pipx" "$(count_lines "$1/pipx.txt")"), "
   fi
   if has uv; then
     uv tool list 2>/dev/null | awk '!/^[-[:space:]]/ { print $1 }' > "$1/uv-tools.txt" || return 1
-    parts="$parts$(count_lines "$1/uv-tools.txt") uv tools, "
+    parts="$parts$(tn "%d uv tool" "%d uv tools" "$(count_lines "$1/uv-tools.txt")"), "
   fi
   if python_real; then
     python3 -m pip list --user --format=freeze 2>/dev/null | awk '!/^-e/' > "$1/pip-user.txt" || return 1
-    parts="$parts$(count_lines "$1/pip-user.txt") pip --user, "
+    parts="$parts$(t "%d pip --user" "$(count_lines "$1/pip-user.txt")"), "
   fi
   save_file "$HOME/.config/pip/pip.conf" "$1/home"
   save_file "$HOME/.pip/pip.conf" "$1/home"
@@ -45,17 +45,17 @@ python_restore() {
         act pyenv global "$v"
       fi
     else
-      warn "pyenv is not installed (it is usually in the Brewfile), skipping Python versions"
+      warn "$(t "pyenv is not installed (it is usually in the Brewfile), skipping Python versions")"
     fi
   fi
   if [ -s "$1/pipx.txt" ]; then
     while IFS= read -r t; do
-      act pipx install "$t" || warn "could not install $t"
+      act pipx install "$t" || warn "$(t "could not install %s" "$t")"
     done < <(pipx list --short 2>/dev/null | awk '{ print $1 }' | missing_pkgs "$1/pipx.txt")
   fi
   if [ -s "$1/uv-tools.txt" ]; then
     while IFS= read -r t; do
-      act uv tool install "$t" || warn "could not install $t"
+      act uv tool install "$t" || warn "$(t "could not install %s" "$t")"
     done < <(uv tool list 2>/dev/null | grep -v '^[-[:space:]]' | awk '{ print $1 }' | missing_pkgs "$1/uv-tools.txt")
   fi
   if [ -s "$1/pip-user.txt" ] && python_real; then
@@ -69,9 +69,9 @@ python_restore() {
     rm -f "$names"
     if [ -s "$req" ]; then
       act python3 -m pip install --user -r "$req" ||
-        warn "pip refused (externally managed Python?). Prefer pipx/uv for CLI tools."
+        warn "$(t "pip refused (externally managed Python?). Prefer pipx/uv for CLI tools.")"
     else
-      dim "  = pip --user packages"
+      dim "  = $(t "pip --user packages")"
     fi
     rm -f "$req"
   fi

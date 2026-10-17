@@ -65,10 +65,10 @@ secrets_list_found() { # <redact log> [max rows] [indent]
   while IFS=: read -r label line name; do
     n=$((n + 1))
     if [ "$max" -gt 0 ] && [ $n -gt "$max" ]; then
-      printf '%*s  %s… and %d more, see dudu secrets%s\n' "$pad" "" "$GRAY" $((total - max)) "$NC"
+      printf '%*s  %s%s%s\n' "$pad" "" "$GRAY" "$(t "… and %d more, see dudu secrets" $((total - max)))" "$NC"
       break
     fi
-    printf '%*s%s⚠%s %-28s %s%s line %s%s\n' "$pad" "" "$YELLOW" "$NC" "${name:-secret value}" "$GRAY" "$label" "$line" "$NC"
+    printf '%*s%s⚠%s %-28s %s%s%s\n' "$pad" "" "$YELLOW" "$NC" "${name:-secret value}" "$GRAY" "$(t "%s line %s" "$label" "$line")" "$NC"
   done < <(sort -u -t: -k1,1 -k2,2n "$1")
 }
 
@@ -143,13 +143,13 @@ secrets_commit() { # <file> <new> <label>
   bak=$(backup_copy_name "$1")
   # Messages go to stderr: stdout carries the name of the copy.
   if ! cp -p "$1" "$bak" || ! chmod 600 "$bak"; then
-    warn "$3: could not keep a copy, left as is" >&2
+    warn "$(t "%s: could not keep a copy, left as is" "$3")" >&2
     return 1
   fi
-  [ -L "$1" ] && warn "$3 is a symlink (dotfiles repo?): its history may still hold the key" >&2
+  [ -L "$1" ] && warn "$(t "%s is a symlink (dotfiles repo?): its history may still hold the key" "$3")" >&2
   if ! cat "$2" > "$1"; then
     cat "$bak" > "$1"
-    warn "$3: could not be written, restored as it was" >&2
+    warn "$(t "%s: could not be written, restored as it was" "$3")" >&2
     return 1
   fi
   printf '%s' "$bak"
@@ -166,8 +166,8 @@ secrets_move() { # <entries file>
   if [ -n "${DUDU_DRY_RUN:-}" ]; then
     while IFS= read -r label; do
       n=$(secrets_count "$1" "$label")
-      printf '  %s→ move %s key%s from %s to %s%s\n' "$GRAY" "$n" "$([ "$n" -gt 1 ] && echo s)" \
-        "$label" "$(tilde "$DUDU_SECRETS_FILE")" "$NC"
+      printf '  %s→ %s%s\n' "$GRAY" \
+        "$(tn "move %d key from %s to %s" "move %d keys from %s to %s" "$n" "$label" "$(tilde "$DUDU_SECRETS_FILE")")" "$NC"
     done < <(cut -d: -f1 "$1" | sort -u)
     return 0
   fi
@@ -186,7 +186,7 @@ secrets_move_shell() { # <entries file> <label>
   moved=$(mktemp)
   while IFS=: read -r _ _ name; do
     line=$(secrets_shell_line "$file" "$name")
-    if [ -z "$line" ]; then warn "$2: $name changed since the scan, left in place"; continue; fi
+    if [ -z "$line" ]; then warn "$(t "%s: %s changed since the scan, left in place" "$2" "$name")"; continue; fi
     lines="$lines$line,"
   done < <(awk -F: -v l="$2" '$1 == l' "$1")
   [ "$lines" = "," ] && { rm -f "$moved"; return 0; }
@@ -203,7 +203,7 @@ secrets_move_shell() { # <entries file> <label>
       secrets_put "$name" "$line"
       n=$((n + 1))
     done < "$moved"
-    step_row ok "$2" "$n key$([ $n -gt 1 ] && echo s) moved to $(tilde "$DUDU_SECRETS_FILE"), old version in $(tilde "$bak")"
+    step_row ok "$2" "$(tn "%d key moved to %s, old version in %s" "%d keys moved to %s, old version in %s" "$n" "$(tilde "$DUDU_SECRETS_FILE")" "$(tilde "$bak")")"
   fi
   rm -f "$new" "$moved"
 }
@@ -237,7 +237,7 @@ secrets_move_npmrc() { # <entries file>
   local file="$HOME/.npmrc" name line lines="," l nr=0 var val q taken="" new bak n=0 rc exports
   while IFS=: read -r _ line name; do
     line=$(secrets_npm_line "${name#npm token }" "$line")
-    if [ -z "$line" ]; then warn "~/.npmrc: $name changed since the scan, left in place"; continue; fi
+    if [ -z "$line" ]; then warn "$(t "%s: %s changed since the scan, left in place" "~/.npmrc" "$name")"; continue; fi
     lines="$lines$line,"
   done < <(awk -F: '$1 == "~/.npmrc"' "$1")
   [ "$lines" = "," ] && return 0
@@ -262,7 +262,7 @@ secrets_move_npmrc() { # <entries file>
   done < "$file"
   if bak=$(secrets_commit "$file" "$new" "~/.npmrc"); then
     while read -r var line; do secrets_put "$var" "$line"; done < "$exports"
-    step_row ok "~/.npmrc" "$n token$([ $n -gt 1 ] && echo s) moved to $(tilde "$DUDU_SECRETS_FILE"), old version in $(tilde "$bak")"
+    step_row ok "~/.npmrc" "$(tn "%d token moved to %s, old version in %s" "%d tokens moved to %s, old version in %s" "$n" "$(tilde "$DUDU_SECRETS_FILE")" "$(tilde "$bak")")"
   fi
   rm -f "$new" "$exports"
   # npm only sees the token if the shell loads the secrets file.
@@ -272,5 +272,5 @@ secrets_move_npmrc() { # <entries file>
   case "${SHELL##*/}" in bash) rc=.bashrc ;; *) rc=.zshrc ;; esac
   [ -n "$(tail -c1 "$HOME/$rc" 2>/dev/null)" ] && echo >> "$HOME/$rc"
   printf '\n[ -f ~/.secrets ] && source ~/.secrets  # keys kept out of backups (dudu secrets)\n' >> "$HOME/$rc"
-  step_row ok "~/$rc" "now loads $(tilde "$DUDU_SECRETS_FILE")"
+  step_row ok "~/$rc" "$(t "now loads %s" "$(tilde "$DUDU_SECRETS_FILE")")"
 }

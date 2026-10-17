@@ -69,7 +69,7 @@ notes_save() { # <bundle> <host>
   text=$(mktemp)
   if ! notes_pack "$1" > "$text"; then
     rm -f "$html" "$text"
-    err "Could not pack the backup for Notes"
+    err "$(t "Could not pack the backup for Notes")"
     return 1
   fi
   notes_html "$name" < "$text" > "$html"
@@ -132,7 +132,7 @@ APPLESCRIPT
   tmp_register "$check"
   if ! notes_read "$name" | notes_unpack "$check" || ! bundle_verify "$check"; then
     rm -rf "$check"
-    err "The note was saved but does not read back intact (the previous one is kept)"
+    err "$(t "The note was saved but does not read back intact (the previous one is kept)")"
     return 1
   fi
   rm -rf "$check"

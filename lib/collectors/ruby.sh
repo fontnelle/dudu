@@ -20,7 +20,7 @@ ruby_backup() {
   if has gem; then ruby_gems | sort -u > "$1/gems.txt" || return 1; fi
   save_file "$HOME/.gemrc" "$1/home"
   save_file "$HOME/.irbrc" "$1/home"
-  summary "$1" "$(count_lines "$1/gems.txt") gems$( [ -s "$1/rbenv.txt" ] && printf ', %s rbenv versions' "$(count_lines "$1/rbenv.txt")")"
+  summary "$1" "$(tn "%d gem" "%d gems" "$(count_lines "$1/gems.txt")")$( [ -s "$1/rbenv.txt" ] && printf ', %s' "$(tn "%d rbenv version" "%d rbenv versions" "$(count_lines "$1/rbenv.txt")")")"
 }
 
 ruby_restore() {
@@ -35,7 +35,7 @@ ruby_restore() {
   if [ -s "$1/gems.txt" ]; then
     gems=$(ruby_gems | missing_pkgs "$1/gems.txt")
     # shellcheck disable=SC2086
-    if [ -n "$gems" ]; then act gem install $gems; else dim "  = all gems installed"; fi
+    if [ -n "$gems" ]; then act gem install $gems; else dim "  = $(t "all gems installed")"; fi
   fi
   restore_home "$1/home" ".gemrc
 .irbrc"

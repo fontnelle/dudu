@@ -12,6 +12,8 @@ lint:
 	@# Under bash 3.2 a failing [[ ]] does not fail a bats test: end each one with || false.
 	@! grep -nE '^[[:space:]]+\[\[ .*\]\][[:space:]]*$$' $(wildcard tests/*.bats) | grep .
 	@if command -v zsh >/dev/null; then zsh -n completions/dudu.zsh completions/_dudu; fi
+	@# Every message has a translation in each catalog, with the same %s/%d.
+	bash tests/i18n_check.sh
 	@# bash 3.2 reads "$VAR" followed by a UTF-8 byte as part of the name: write "${VAR}".
 	@! perl -ne 'print "$$ARGV:$$.: $$_" if /\$$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/; close ARGV if eof' $(SOURCES) | grep .
 

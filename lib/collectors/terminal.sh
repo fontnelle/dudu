@@ -85,7 +85,7 @@ terminal_backup() {
   fi
 
   terminal_installed_fonts > "$1/fonts.txt"
-  summary "$1" "$n configs${profiles:+, profiles:$profiles}, $(count_lines "$1/fonts.txt") Nerd Font files"
+  summary "$1" "$(tn "%d config" "%d configs" "$n")${profiles:+, $(t "profiles:%s" "$profiles")}, $(tn "%d Nerd Font file" "%d Nerd Font files" "$(count_lines "$1/fonts.txt")")"
 }
 
 terminal_restore() {
@@ -98,16 +98,16 @@ Library/Application Support/iTerm2/DynamicProfiles/*"
         [ -f "$p" ] || continue
         d=$(basename "$p" .plist)
         # Only the two terminal domains, whatever else a backup folder may contain.
-        list_has "$(echo "$TERMINAL_DOMAINS" | tr ' ' ',')" "$d" || { warn "ignored unexpected file defaults/$d.plist"; continue; }
+        list_has "$(echo "$TERMINAL_DOMAINS" | tr ' ' ',')" "$d" || { warn "$(t "ignored unexpected file %s" "defaults/$d.plist")"; continue; }
         current=$(mktemp)
         defaults export "$d" "$current" 2>/dev/null || printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<plist version="1.0">' '<dict/>' '</plist>' > "$current"
         if [ "$(terminal_plist_digest "$current")" = "$(terminal_plist_digest "$p")" ]; then
           rm -f "$current"
-          dim "  = $d profiles"
+          dim "  = $(t "%s profiles" "$d")"
           continue
         fi
         if [ -n "${DUDU_DRY_RUN:-}" ]; then
-          printf '  %s→ merge profiles into %s (current settings saved first)%s\n' "$GRAY" "$d" "$NC"
+          printf '  %s→ %s%s\n' "$GRAY" "$(t "merge profiles into %s (current settings saved first)" "$d")" "$NC"
           rm -f "$current"
           continue
         fi
@@ -120,25 +120,25 @@ Library/Application Support/iTerm2/DynamicProfiles/*"
           val=$(terminal_plist_value "$p" "$key")
           [ -n "$val" ] || continue
           if printf '%s' "$val" | grep -q '<redacted-by-dudu>'; then
-            warn "$d: kept your current \"$key\" (the backup had a masked secret there)"
+            warn "$(t "%s: kept your current \"%s\" (the backup had a masked secret there)" "$d" "$key")"
             continue
           fi
           plutil -replace "$key" -xml "$val" "$current"
         done < <(printf '%s\n' "$TERMINAL_PLIST_KEYS" | tr '|' '\n')
-        defaults import "$d" "$current" && ok "$d profiles $GRAY(previous settings in $(tilde "$undo"))$NC"
+        defaults import "$d" "$current" && ok "$(t "%s profiles" "$d") $GRAY($(t "previous settings in %s" "$(tilde "$undo")"))$NC"
         rm -f "$current"
         imported=1
       done
       [ -n "$imported" ] && [ "${TERM_PROGRAM:-}" = Apple_Terminal ] &&
-        warn "Terminal.app is open: quit it with ⌘Q (not the window) and reopen, or it may overwrite the imported profiles."
+        warn "$(t "Terminal.app is open: quit it with ⌘Q (not the window) and reopen, or it may overwrite the imported profiles.")"
     else
-      dim "  Terminal.app/iTerm2 profiles are macOS only, skipped"
+      dim "  $(t "Terminal.app/iTerm2 profiles are macOS only, skipped")"
     fi
   fi
   local missing
   missing=$(terminal_installed_fonts | missing_from "$1/fonts.txt")
   if [ -n "$missing" ]; then
-    warn "Your prompt used these Nerd Fonts, install them (e.g. brew install --cask font-fira-code-nerd-font):"
+    warn "$(t "Your prompt used these Nerd Fonts, install them (e.g. %s):" "brew install --cask font-fira-code-nerd-font")"
     printf '%s\n' "$missing" | head -20 | sed 's/^/    /'
   fi
   return 0

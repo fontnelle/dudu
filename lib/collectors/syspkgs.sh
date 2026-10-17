@@ -36,39 +36,39 @@ syspkgs_backup() {
   if has snap; then
     snap list 2>/dev/null | awk 'NR > 1 && $1 !~ /^(core[0-9]*|snapd|bare|gtk-common-themes|gnome-.*|snapd-desktop-integration)$/ { print $1 }' > "$1/snap.txt" || return 1
   fi
-  summary "$1" "$(count_lines "$1/packages.txt") $pm packages"
+  summary "$1" "$(tn "%d %s package" "%d %s packages" "$(count_lines "$1/packages.txt")" "$pm")"
 }
 
 syspkgs_restore() {
-  if is_macos; then dim "  Linux only, skipped"; return 0; fi
+  if is_macos; then dim "  $(t "Linux only, skipped")"; return 0; fi
   local pm saved pkgs
   pm=$(linux_pm)
   saved=$(cat "$1/manager" 2>/dev/null)
   if [ "$pm" != "$saved" ]; then
-    warn "Backup came from $saved, this machine uses $pm. Trying the same package names."
+    warn "$(t "Backup came from %s, this machine uses %s. Trying the same package names." "$saved" "$pm")"
   fi
   pkgs=$(syspkgs_list_installed "$pm" | missing_pkgs "$1/packages.txt")
   if [ -z "$pkgs" ]; then
-    dim "  all packages already installed"
+    dim "  $(t "all packages already installed")"
   else
     [ "$pm" = apt ] && as_root apt-get update
     # shellcheck disable=SC2086
     if ! syspkgs_install "$pm" $pkgs; then
-      warn "Batch install failed, installing one by one"
+      warn "$(t "Batch install failed, installing one by one")"
       local p
-      for p in $pkgs; do syspkgs_install "$pm" "$p" || warn "could not install $p"; done
+      for p in $pkgs; do syspkgs_install "$pm" "$p" || warn "$(t "could not install %s" "$p")"; done
     fi
   fi
   if [ -s "$1/flatpak.txt" ] && has flatpak; then
     local app
     while IFS= read -r app; do
-      act flatpak install -y --noninteractive flathub "$app" || warn "could not install $app"
+      act flatpak install -y --noninteractive flathub "$app" || warn "$(t "could not install %s" "$app")"
     done < <(flatpak list --app --columns=application 2>/dev/null | missing_pkgs "$1/flatpak.txt")
   fi
   if [ -s "$1/snap.txt" ] && has snap; then
     local s
     while IFS= read -r s; do
-      as_root snap install "$s" || warn "could not install $s"
+      as_root snap install "$s" || warn "$(t "could not install %s" "$s")"
     done < <(snap list 2>/dev/null | awk 'NR > 1 { print $1 }' | missing_pkgs "$1/snap.txt")
   fi
 }

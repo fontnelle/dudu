@@ -59,6 +59,7 @@ expand_home() {
 
 # destination= is a comma list (icloud,notes): every backup goes to all of them.
 # path= is the local folder, gdrive_path= a Google Drive folder that was not auto-detected.
+# language= is auto (follow the system), en, pt-BR or es: i18n_init reads it on its own.
 config_load() {
   DUDU_DESTINATION=""
   DUDU_PATH=""
@@ -68,8 +69,10 @@ config_load() {
   DUDU_KEEP=5
   DUDU_RCLONE_REMOTE=""
   DUDU_ENCRYPT=off
+  DUDU_LANGUAGE=auto
   [ -f "$DUDU_CONFIG_FILE" ] || return 1
   local key value
+  # shellcheck disable=SC2094 # the file name only goes into a warning
   while IFS='=' read -r key value || [ -n "$key" ]; do
     # Tolerant of hand edits: spaces around "=", Windows line ends, quoted values.
     key=$(printf '%s' "$key" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -84,8 +87,9 @@ config_load() {
       rclone_remote) DUDU_RCLONE_REMOTE=$value ;;
       gdrive_path) DUDU_GDRIVE_PATH=$(expand_home "$value") ;;
       encrypt) [ "$value" = on ] && DUDU_ENCRYPT=on ;;
+      language) DUDU_LANGUAGE=${value:-auto} ;;
       ''|'#'*) ;;
-      *) printf 'dudu: unknown setting "%s" in %s, ignored\n' "$key" "$DUDU_CONFIG_FILE" >&2 ;;
+      *) printf 'dudu: %s\n' "$(t "unknown setting \"%s\" in %s, ignored" "$key" "$DUDU_CONFIG_FILE")" >&2 ;;
     esac
   done < "$DUDU_CONFIG_FILE"
   # Configs from 0.1.0 kept the Google Drive folder in path=.
@@ -109,26 +113,40 @@ config_save() {
     echo "rclone_remote=$DUDU_RCLONE_REMOTE"
     echo "gdrive_path=$DUDU_GDRIVE_PATH"
     echo "encrypt=$DUDU_ENCRYPT"
+    echo "language=${DUDU_LANGUAGE:-auto}"
   } > "$DUDU_CONFIG_FILE.tmp" && mv "$DUDU_CONFIG_FILE.tmp" "$DUDU_CONFIG_FILE"
 }
 
-# First run: ask for a destination (or default to a local folder when not interactive).
+# First run: say which language dudu picked, then ask for a destination (or default to a
+# local folder when not interactive).
 ensure_configured() {
   config_load && [ -n "$DUDU_DESTINATION" ] && return 0
   # A config file without a destination is a typo to fix by hand, never a reason to
   # overwrite the user's settings (a cron run would otherwise switch backups to local).
   if [ -f "$DUDU_CONFIG_FILE" ]; then
-    err "No destination in $DUDU_CONFIG_FILE: set one with dudu config"
+    err "$(t "No destination in %s: set one with dudu config" "$DUDU_CONFIG_FILE")"
     return 1
   fi
   if [ -t 0 ] && [ -t 1 ]; then
-    echo "First run: where should dudu keep your backups?"
+    # The checklist clears the screen: the language line goes under its title, and again
+    # after it, where it stays in the scrollback.
+    local CL_NOTE
+    CL_NOTE=$(first_run_language)
+    printf '%s\n' "$(t "First run: where should dudu keep your backups?")"
     config_pick_destination || return 1
+    [ -n "$CL_NOTE" ] && { echo; printf '%s\n' "$CL_NOTE"; }
   else
     DUDU_DESTINATION=local
     DUDU_PATH="$HOME/dudu-backups"
     config_save
   fi
+}
+
+# Detected, not asked: say so once, with how to change it.
+first_run_language() {
+  [ "$DUDU_LANG_SOURCE" = system ] || return 0
+  printf '%s\n' "$(t "Language: %s, detected from the system" "$(i18n_name "$DUDU_LANG_ACTIVE")")"
+  dim "$(t "To change it: Settings › Language  or  %s" "dudu config set language en|pt-BR|es")"
 }
 
 collector_enabled() {
@@ -147,7 +165,7 @@ dest_list() { printf '%s' "$DUDU_DESTINATION" | tr ',' ' '; }
 
 dest_label() {
   case "$1" in
-    local) echo "Local folder" ;;
+    local) t "Local folder"; echo ;;
     icloud) echo "iCloud Drive" ;;
     gdrive) echo "Google Drive" ;;
     notes) echo "Apple Notes" ;;
@@ -252,17 +270,17 @@ restore_home() { # <backup home dir> [allowed globs, one per line]
   while IFS= read -r src; do
     rel=${src#"$base"/}
     if restore_denied "$rel" || { [ -n "$allow" ] && ! restore_allowed "$rel" "$allow"; }; then
-      warn "ignored unexpected file in the backup: ~/$(safe_text "$rel")"
+      warn "$(t "ignored unexpected file in the backup: %s" "~/$(safe_text "$rel")")"
       continue
     fi
     dst="$HOME/$rel"
     # macOS-only places (Library/...) from a Mac backup mean nothing on Linux.
     if ! is_macos && [ "${rel#Library/}" != "$rel" ]; then
-      dim "  - ~/$(safe_text "$rel") (macOS only)"
+      dim "  - $(t "%s (macOS only)" "~/$(safe_text "$rel")")"
       continue
     fi
     if [ -L "$dst" ] && [ -z "${DUDU_FOLLOW_SYMLINKS:-}" ]; then
-      warn "~/$rel is a symlink (dotfiles manager?), left as is. Backup copy: $(safe_text "$src")"
+      warn "$(t "%s is a symlink (dotfiles manager?), left as is. Backup copy: %s" "~/$rel" "$(safe_text "$src")")"
       continue
     fi
     merged=""
@@ -277,16 +295,16 @@ restore_home() { # <backup home dir> [allowed globs, one per line]
       continue
     fi
     [ -n "$merged" ] && grep -q '^# dudu: fill in' "$merged" &&
-      warn "~/$rel had secrets masked in the backup: fill in the lines marked \"# dudu: fill in\""
+      warn "$(t "%s had secrets masked in the backup: fill in the lines marked \"%s\"" "~/$rel" "# dudu: fill in")"
     if [ -n "${DUDU_DRY_RUN:-}" ]; then
-      printf '  %s→ write ~/%s%s\n' "$GRAY" "$(safe_text "$rel")" "$NC"
+      printf '  %s→ %s%s\n' "$GRAY" "$(t "write %s" "~/$(safe_text "$rel")")" "$NC"
     else
       mkdir -p "$(dirname "$dst")"
       if [ -f "$dst" ]; then
         bak=$(backup_copy_name "$dst")
-        cp -p "$dst" "$bak" || { warn "could not keep a copy of ~/$rel, left as is"; rc=1; [ -n "$merged" ] && rm -f "$merged"; continue; }
+        cp -p "$dst" "$bak" || { warn "$(t "could not keep a copy of %s, left as is" "~/$rel")"; rc=1; [ -n "$merged" ] && rm -f "$merged"; continue; }
       fi
-      if cp "$src" "$dst"; then ok "~/$rel"; else warn "could not write ~/$rel"; rc=1; fi
+      if cp "$src" "$dst"; then ok "~/$rel"; else warn "$(t "could not write %s" "~/$rel")"; rc=1; fi
     fi
     [ -n "$merged" ] && rm -f "$merged"
   done < <(find "$base" -type f | sort)
@@ -323,7 +341,7 @@ pkg_filter() { # stdin -> stdout
     /^[A-Za-z0-9@][A-Za-z0-9@._+\/:-]*$/ && !/:\/\// && !/\.\./ { print; next }
     NF { print > bad }'
   while IFS= read -r n; do
-    warn "ignored suspicious entry in the backup: $(safe_text "$n")" >&2
+    warn "$(t "ignored suspicious entry in the backup: %s" "$(safe_text "$n")")" >&2
   done < "$bad"
   rm -f "$bad"
 }

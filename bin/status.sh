@@ -21,8 +21,8 @@ same_content() { # <old> <new>
 pretty_file() {
   case "$1" in
     home/*) printf '~/%s' "${1#home/}" ;;
-    defaults/com.apple.Terminal.plist) printf 'Terminal.app profiles' ;;
-    defaults/com.googlecode.iterm2.plist) printf 'iTerm2 profiles' ;;
+    defaults/com.apple.Terminal.plist) t "Terminal.app profiles" ;;
+    defaults/com.googlecode.iterm2.plist) t "iTerm2 profiles" ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -48,7 +48,7 @@ status_changes() { # <old dir> <new dir>
       sort -u "$new/$rel" | comm -23 "$f" - | sed 's/^/- /'
       rm -f "$f"
     else
-      printf '~ %s changed\n' "$(pretty_file "$rel")"
+      printf '~ %s\n' "$(t "%s changed" "$(pretty_file "$rel")")"
     fi
   done < <( { (cd "$old" 2>/dev/null && find . -type f); (cd "$new" 2>/dev/null && find . -type f); } |
             sed 's|^\./||' | sort -u)
@@ -77,34 +77,34 @@ cmd_status() {
   : > "$DUDU_REDACT_LOG"
   DUDU_SKIP_LOG="$work/skipped"
 
-  title "Status of $host"
-  dim "Backups in $(dest_labels)"
+  title "$(t "Status of %s" "$host")"
+  dim "$(t "Backups in %s" "$(dest_labels)")"
   echo
 
-  if ! spin "Reading the latest backup" dest_load_latest "$host" "$work/old" || [ ! -f "$work/old/manifest.json" ]; then
-    warn "No backup of this machine yet."
+  if ! spin "$(t "Reading the latest backup")" dest_load_latest "$host" "$work/old" || [ ! -f "$work/old/manifest.json" ]; then
+    warn "$(t "No backup of this machine yet.")"
     rm -rf "$work"
     # Other machines have backups: this is probably a new machine to set up, and a backup
     # now would only save an empty setup.
     if [ -n "$(dest_all_hosts)" ]; then
-      dim "Backups of other machines exist. On a new machine, start with: dudu restore"
+      dim "$(t "Backups of other machines exist. On a new machine, start with: dudu restore")"
       return 0
     fi
-    offer_backup "Back up now?"
+    offer_backup "$(t "Back up now?")"
     return 0
   fi
   crypto_open "$work/old" || { rm -rf "$work"; return 1; }
   created=$(sed -n 's/.*"created": *"\([^"]*\)".*/\1/p' "$work/old/manifest.json")
-  ok "Last backup: $(friendly_date "$created") ${GRAY}· $(dest_label "$(cat "$work/old/.dudu-source" 2>/dev/null)")$NC"
+  ok "$(t "Last backup: %s" "$(friendly_date "$created")") ${GRAY}· $(dest_label "$(cat "$work/old/.dudu-source" 2>/dev/null)")$NC"
   local sched
-  sched=$(schedule_time 2>/dev/null) && [ -n "$sched" ] && dim "  Next scheduled backup at $sched"
+  sched=$(schedule_time 2>/dev/null) && [ -n "$sched" ] && dim "  $(t "Next scheduled backup at %s" "$sched")"
   rm -f "$work/old/.dudu-source"
 
   collect_all "$work/new/now" quiet
-  ok "Checked this machine: $(echo "$COLLECTED" | wc -w | tr -d ' ') tools"
+  ok "$(tn "Checked this machine: %d tool" "Checked this machine: %d tools" "$(echo "$COLLECTED" | wc -w | tr -d ' ')")"
   if [ -s "$DUDU_REDACT_LOG" ]; then
     n=$(sort -u "$DUDU_REDACT_LOG" | grep -c .)
-    warn "$n key$([ "$n" -gt 1 ] && echo s) in $(cut -d: -f1 "$DUDU_REDACT_LOG" | sort -u | paste -sd, - | sed 's/,/, /g') $GRAY(masked in backups, see dudu secrets)$NC"
+    warn "$(tn "%d key in %s" "%d keys in %s" "$n" "$(cut -d: -f1 "$DUDU_REDACT_LOG" | sort -u | paste -sd, - | sed 's/,/, /g')") $GRAY$(t "(masked in backups, see dudu secrets)")$NC"
   fi
   echo
 
@@ -112,32 +112,32 @@ cmd_status() {
     collector_enabled "$c" || continue
     if [ ! -d "$work/old/$c" ] && [ ! -d "$work/new/now/$c" ]; then continue; fi
     if [ ! -d "$work/old/$c" ]; then
-      row "${GREEN}+${NC}" "$c" "found on this machine, not in the backup yet"
+      row "${GREEN}+${NC}" "$c" "$(t "found on this machine, not in the backup yet")"
       total=$((total + 1))
       continue
     fi
     if [ ! -d "$work/new/now/$c" ] && case " $FAILED " in *" $c "*) true ;; *) false ;; esac; then
-      row "${YELLOW}?${NC}" "$c" "could not be read now (failed or timed out, see $(tilde "$DUDU_LOG"))"
+      row "${YELLOW}?${NC}" "$c" "$(t "could not be read now (failed or timed out, see %s)" "$(tilde "$DUDU_LOG")")"
       continue
     fi
     if [ ! -d "$work/new/now/$c" ]; then
-      row "${RED}-${NC}" "$c" "in the backup, not found on this machine anymore"
+      row "${RED}-${NC}" "$c" "$(t "in the backup, not found on this machine anymore")"
       total=$((total + 1))
       continue
     fi
     changes=$(status_changes "$work/old/$c" "$work/new/now/$c")
     if [ -z "$changes" ]; then
-      row "${GREEN}✓${NC}" "$c" "up to date"
+      row "${GREEN}✓${NC}" "$c" "$(t "up to date")"
       continue
     fi
     n=$(printf '%s\n' "$changes" | grep -c .)
     total=$((total + n))
-    row "${YELLOW}~${NC}" "$c" "$n change$([ "$n" -gt 1 ] && echo s)"
+    row "${YELLOW}~${NC}" "$c" "$(tn "%d change" "%d changes" "$n")"
     shown=0
     while IFS= read -r line; do
       shown=$((shown + 1))
       if [ $shown -gt 8 ]; then
-        printf '             %s… and %d more%s\n' "$GRAY" $((n - 8)) "$NC"
+        printf '             %s%s%s\n' "$GRAY" "$(t "… and %d more" $((n - 8)))" "$NC"
         break
       fi
       print_change "$line"
@@ -147,11 +147,11 @@ cmd_status() {
 
   echo
   if [ $total -eq 0 ]; then
-    printf '%s%s✓ Everything is backed up%s\n' "$GREEN" "$BOLD" "$NC"
+    printf '%s%s✓ %s%s\n' "$GREEN" "$BOLD" "$(t "Everything is backed up")" "$NC"
   else
-    printf '%s%s⚠ %d change%s since the last backup%s\n' "$YELLOW" "$BOLD" "$total" "$([ $total -gt 1 ] && echo s)" "$NC"
+    printf '%s%s⚠ %s%s\n' "$YELLOW" "$BOLD" "$(tn "%d change since the last backup" "%d changes since the last backup" "$total")" "$NC"
     # 3 = the backup is behind this machine (useful in scripts).
-    offer_backup "Back up now?" || return 3
+    offer_backup "$(t "Back up now?")" || return 3
   fi
 }
 
@@ -162,7 +162,7 @@ offer_backup() {
     echo
     confirm "$1" && { echo; cmd_backup; return; }
   else
-    dim "Run dudu backup to save them."
+    dim "$(t "Run dudu backup to save them.")"
   fi
   return 1
 }

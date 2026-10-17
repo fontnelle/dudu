@@ -14,26 +14,26 @@ cmd_secrets() {
   : > "$DUDU_REDACT_LOG"
   : > "$DUDU_SKIP_LOG"
 
-  title "Secrets on $(dudu_host)"
-  dim "Masked or left out of every backup: their values never leave this machine"
+  title "$(t "Secrets on %s" "$(dudu_host)")"
+  dim "$(t "Masked or left out of every backup: their values never leave this machine")"
   echo
   collect_all "$work/scan" quiet
   secrets_report_skipped
-  ok "Checked this machine: $(echo "$COLLECTED" | wc -w | tr -d ' ') tools"
+  ok "$(t "Checked this machine: %s tools" "$(echo "$COLLECTED" | wc -w | tr -d ' ')")"
 
   n=$(sort -u "$DUDU_REDACT_LOG" | grep -c .)
   if [ "$n" -gt 0 ]; then
-    section "Keys in config files" "masked in every backup"
+    section "$(t "Keys in config files")" "$(t "masked in every backup")"
     secrets_list_found "$DUDU_REDACT_LOG" 0 2
-    section_done "$n key$([ "$n" -gt 1 ] && echo s) · fill them in again on a new machine"
+    section_done "$(tn "%d key · fill them in again on a new machine" "%d keys · fill them in again on a new machine" "$n")"
   fi
   k=$(sort -u "$DUDU_SKIP_LOG" | grep -c .)
   if [ "$k" -gt 0 ]; then
-    section "Key files" "kept on this machine"
+    section "$(t "Key files")" "$(t "kept on this machine")"
     sort -u "$DUDU_SKIP_LOG" | while IFS= read -r f; do
-      printf '  %s●%s %-28s %s%s%s\n' "$GREEN" "$NC" "$(secret_kind "$f")" "$GRAY" "$f" "$NC"
+      printf '  %s●%s %s %s%s%s\n' "$GREEN" "$NC" "$(pad "$(secret_kind "$f")" 28)" "$GRAY" "$f" "$NC"
     done
-    section_done "$k file$([ "$k" -gt 1 ] && echo s) · copy them to the new machine yourself"
+    section_done "$(tn "%d file · copy them to the new machine yourself" "%d files · copy them to the new machine yourself" "$k")"
   fi
 
   movable="$work/movable"
@@ -41,25 +41,27 @@ cmd_secrets() {
   m=$(grep -c . "$movable")
   echo
   if [ "$m" -gt 0 ]; then
-    printf '%s%s⚠ %d key%s can move out of your dotfiles%s\n' "$YELLOW" "$BOLD" "$m" "$([ "$m" -gt 1 ] && echo s)" "$NC"
-    dim "  To $(tilde "$DUDU_SECRETS_FILE"), never backed up. Your shell loads it from the same spot."
+    printf '%s%s⚠ %s%s\n' "$YELLOW" "$BOLD" "$(tn "%d key can move out of your dotfiles" "%d keys can move out of your dotfiles" "$m")" "$NC"
+    dim "  $(t "To %s, never backed up. Your shell loads it from the same spot." "$(tilde "$DUDU_SECRETS_FILE")")"
     grep -q '^~/.npmrc:' "$movable" &&
-      dim "  npm tokens become \${NPM_TOKEN} in ~/.npmrc, which npm reads from your shell."
+      dim "  $(t "npm tokens become %s in ~/.npmrc, which npm reads from your shell." "\${NPM_TOKEN}")"
     if [ -n "${DUDU_DRY_RUN:-}" ]; then
       secrets_move "$movable"
     elif [ -t 0 ] && [ -t 1 ]; then
       echo
-      if confirm "Move $([ "$m" -gt 1 ] && echo them || echo it) to $(tilde "$DUDU_SECRETS_FILE")?"; then
+      local where
+      where=$(tilde "$DUDU_SECRETS_FILE")
+      if confirm "$(if [ "$m" -gt 1 ]; then t "Move them to %s?" "$where"; else t "Move it to %s?" "$where"; fi)"; then
         echo
         dudu_lock || return 1
         secrets_move "$movable"
-        dim "    Delete the .dudu-bak once you have checked, it still has the key."
+        dim "    $(t "Delete the .dudu-bak once you have checked, it still has the key.")"
       fi
     fi
   elif [ "$n" -gt 0 ]; then
-    printf '%s%s✓ Your keys are masked in every backup%s\n' "$GREEN" "$BOLD" "$NC"
+    printf '%s%s✓ %s%s\n' "$GREEN" "$BOLD" "$(t "Your keys are masked in every backup")" "$NC"
   else
-    printf '%s%s✓ No keys in your config files%s\n' "$GREEN" "$BOLD" "$NC"
+    printf '%s%s✓ %s%s\n' "$GREEN" "$BOLD" "$(t "No keys in your config files")" "$NC"
   fi
   rm -rf "$work"
   return 0

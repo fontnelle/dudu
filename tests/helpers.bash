@@ -4,6 +4,9 @@ DUDU_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 bats_require_minimum_version 1.5.0
 
+# The tests read dudu's English output, whatever language this machine is set to.
+export DUDU_LANG=en
+
 load_dudu() {
   export HOME="$BATS_TEST_TMPDIR/home"
   export XDG_CONFIG_HOME="$HOME/.config" XDG_CACHE_HOME="$HOME/.cache"

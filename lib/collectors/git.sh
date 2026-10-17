@@ -16,7 +16,7 @@ git_backup() {
   case "$excludes" in
     "$HOME"/*) [ -f "$1/home/${excludes#"$HOME"/}" ] || { save_file "$excludes" "$1/home" && n=$((n + 1)); } ;;
   esac
-  summary "$1" "$n files"
+  summary "$1" "$(tn "%d file" "%d files" "$n")"
 }
 
 git_restore() {
@@ -31,7 +31,7 @@ git_restore() {
       { echo "IgnoreUnknown UseKeychain"; cat "$HOME/.ssh/config"; } > "$HOME/.ssh/config.tmp" &&
         cat "$HOME/.ssh/config.tmp" > "$HOME/.ssh/config"
       rm -f "$HOME/.ssh/config.tmp"
-      ok "~/.ssh/config: added IgnoreUnknown UseKeychain (a macOS option)"
+      ok "$(t "%s: added IgnoreUnknown UseKeychain (a macOS option)" "~/.ssh/config")"
     fi
   fi
   return 0

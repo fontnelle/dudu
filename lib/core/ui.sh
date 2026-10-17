@@ -24,7 +24,7 @@ show_banner() {
   printf '%s%s%s\n' "$GREEN" ' ____            _' "$NC"
   printf '%s%s%s\n' "$GREEN" '|  _ \ _   _  __| |_   _' "$NC"
   printf '%s%s%s   %s%s%s\n' "$GREEN" '| | | | | | |/ _` | | | |' "$NC" "$PURPLE" "$DUDU_HOMEPAGE" "$NC"
-  printf '%s%s%s   %s%s%s\n' "$GREEN" '| |_| | |_| | (_| | |_| |' "$NC" "$GREEN" "Your dev setup, backed up." "$NC"
+  printf '%s%s%s   %s%s%s\n' "$GREEN" '| |_| | |_| | (_| | |_| |' "$NC" "$GREEN" "$(t "Your dev setup, backed up.")" "$NC"
   printf '%s%s%s\n' "$GREEN" '|____/ \__,_|\__,_|\__,_|' "$NC"
 }
 
@@ -89,12 +89,12 @@ dudu_lock() {
   if ! mkdir "$lock" 2>/dev/null; then
     pid=$(cat "$lock/pid" 2>/dev/null)
     if [ -n "$pid" ] && [ "$pid" != "$$" ] && kill -0 "$pid" 2>/dev/null; then
-      err "Another dudu is running (pid $pid). Wait for it to finish."
+      err "$(t "Another dudu is running (pid %s). Wait for it to finish." "$pid")"
       return 1
     fi
     # Left behind by a run that was killed.
     rm -rf "$lock"
-    mkdir "$lock" 2>/dev/null || { err "Could not take the lock $lock"; return 1; }
+    mkdir "$lock" 2>/dev/null || { err "$(t "Could not take the lock %s" "$lock")"; return 1; }
   fi
   printf '%s\n' "$$" > "$lock/pid"
   DUDU_LOCKED=1
@@ -211,7 +211,7 @@ progress_line() {
 spin_draw_progress() { # <label> <elapsed> <tick> <frame>
   local bar=""
   [ "${PROG_COLS:-80}" -ge 70 ] && bar="$(bounce_bar "$3" 18)  "
-  printf '\r\033[2K  %s%s%s %-34s %s%s%s%s\n' "$CYAN" "$4" "$NC" "$1" "$bar" "$GRAY" "$(fmt_secs "$2")" "$NC"
+  printf '\r\033[2K  %s%s%s %s %s%s%s%s\n' "$CYAN" "$4" "$NC" "$(pad "$1" 34)" "$bar" "$GRAY" "$(fmt_secs "$2")" "$NC"
   printf '\033[2K\n'
   progress_line
   printf '\r\033[2A'
@@ -253,10 +253,12 @@ step_row() { # <ok|warn|fail> <name> <detail> [time]
     warn) mark="${YELLOW}⚠${NC}" ;;
     *) mark="${RED}✗${NC}" ;;
   esac
+  local gap=$((14 - ${#2}))
+  [ $gap -lt 0 ] && gap=0
   if [ "$1" = fail ]; then
-    printf '  %s %-14s %s%s%s\n' "$mark" "$2" "$RED" "$3" "$NC"
+    printf '  %s %s%*s %s%s%s\n' "$mark" "$2" "$gap" '' "$RED" "$3" "$NC"
   else
-    printf '  %s %-14s %s%s%s%s\n' "$mark" "$2" "$GRAY" "$3" "${4:+  $4}" "$NC"
+    printf '  %s %s%*s %s%s%s%s\n' "$mark" "$2" "$gap" '' "$GRAY" "$3" "${4:+  $4}" "$NC"
   fi
 }
 
@@ -267,21 +269,23 @@ secs_short() {
 
 # Prints "name   detail" with the name padded, for aligned result lists.
 row() {
-  printf '%s %-10s %s%s%s\n' "$1" "$2" "$GRAY" "$3" "$NC"
+  local gap=$((10 - ${#2}))
+  [ $gap -lt 0 ] && gap=0
+  printf '%s %s%*s %s%s%s\n' "$1" "$2" "$gap" '' "$GRAY" "$3" "$NC"
 }
 
-# y/N question answered with a single key (Enter means no).
+# y/N question answered with a single key (Enter means no). y and s (sim, sí) both say yes.
 confirm() {
   local answer
-  printf '%s %s[y/N]%s ' "$1" "$GRAY" "$NC"
+  printf '%s %s%s%s ' "$1" "$GRAY" "$(t "[y/N]")" "$NC"
   if [ -t 0 ]; then
     IFS= read -rsn1 answer
   else
     read -r answer
   fi
   case "$answer" in
-    y|Y|s|S) printf '%syes%s\n' "$GREEN" "$NC"; return 0 ;;
+    y|Y|s|S) printf '%s%s%s\n' "$GREEN" "$(t "yes")" "$NC"; return 0 ;;
   esac
-  printf '%sno%s\n' "$GRAY" "$NC"
+  printf '%s%s%s\n' "$GRAY" "$(t "no")" "$NC"
   return 1
 }

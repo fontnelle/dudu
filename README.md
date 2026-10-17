@@ -1,7 +1,7 @@
 <div align="center">
   <h1>dudu</h1>
   <p><b>Back up your whole dev setup in one command and put it back on a new machine in another. Packages, runtimes, dotfiles and terminal, on macOS and Linux.</b></p>
-  <p>English · <a href="README.pt-BR.md">Português</a></p>
+  <p>English · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a></p>
   <a href="https://github.com/fontnelle/dudu/stargazers"><img src="https://img.shields.io/github/stars/fontnelle/dudu?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/fontnelle/dudu/releases"><img src="https://img.shields.io/github/v/release/fontnelle/dudu?label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
@@ -22,6 +22,7 @@
 - **Encrypted if you want**: AES-256 with a password kept in your Keychain
 - **Safe to restore**: a backup is treated as untrusted, checked against its checksums, and never overwrites a file without keeping a copy
 - **Runs by itself**: a daily backup with `dudu schedule on`
+- **Speaks your language**: English, Português (Brasil) and Español, picked from your system
 - **Pure bash, no dependencies**: works with the bash 3.2 that ships with macOS
 
 ## Quick Start
@@ -50,7 +51,7 @@ dudu status          # what changed since the last backup
 dudu outdated        # updates for brew, npm, pip, gems, Node LTS... then update all or pick
 dudu secrets         # keys found in your config files, and moving them to ~/.secrets
 dudu schedule on     # a backup every day (12:30, or: dudu schedule on 08:00)
-dudu config          # where backups go, what to include, encryption
+dudu config          # destinations, language, encryption, schedule
 ```
 
 Every command takes `--dry-run` and `--only brew,node,...`. `restore` also takes `--from <machine>` (a backup from another computer), `--file <folder>` (a backup copied by hand) and `--yes`. `--debug` traces every step into `~/.cache/dudu/dudu.log` (needs bash 4.1+).
@@ -143,6 +144,17 @@ With encryption on, the MAC check comes first: a changed backup is refused befor
 
 `dudu schedule on [HH:MM]` adds a daily backup: a LaunchAgent on macOS, a systemd user timer on Linux. It runs without a terminal, so it uses the stored backup password, and a failure shows a notification. If you use Apple Notes, run one backup by hand first so macOS can ask for the permission. `dudu schedule status` shows it, `dudu schedule off` removes it.
 
+## Language
+
+dudu speaks English, Português (Brasil) and Español. It follows your system language (`LANG`, or System Settings on macOS) with nothing to set up, and the first run says which one it picked.
+
+```bash
+dudu config set language es      # en, pt-BR, es, or auto to follow the system again
+DUDU_LANG=en dudu status         # one command in another language
+```
+
+Or from the menu: **Settings › Language**. A backup's `RESTORE.md` (and its Apple Notes note) is written in the language of the machine that made it. Tab completion descriptions in zsh follow the same setting.
+
 ## Shell completion and highlighting
 
 ```bash
@@ -159,7 +171,7 @@ Each tool is one file in `lib/collectors/<name>.sh`:
 
 ```bash
 foo_detect()   { has foo; }                                   # is it on this machine?
-foo_backup()   { foo list > "$1/list.txt" || return 1; summary "$1" "N things"; }
+foo_backup()   { foo list > "$1/list.txt" || return 1; summary "$1" "$(tn "%d thing" "%d things" "$n")"; }
 foo_restore()  { act foo install ...; }                        # act runs, or prints in --dry-run
 foo_outdated() { foo outdated; }                              # optional: "name current latest" per line
 foo_upgrade()  { foo upgrade "$1"; }                          # optional: updates one package
@@ -170,11 +182,11 @@ Then add the name to `DUDU_COLLECTORS` in `lib/core/common.sh` (the order is the
 ## Development
 
 ```bash
-make check     # shellcheck + bats
+make check     # shellcheck + bats + translation catalogs
 make install   # link this checkout as ~/.local/bin/dudu
 ```
 
-Code must run on bash 3.2 (the macOS default): no associative arrays, no `mapfile`, no `${var,,}`, and `${VAR}` before any non-ASCII character. CI runs the tests on macOS, bash 3.2, Ubuntu, Fedora and Arch.
+Code must run on bash 3.2 (the macOS default): no associative arrays, no `mapfile`, no `${var,,}`, and `${VAR}` before any non-ASCII character. Messages are written in English as `t "text %s" "$value"` (or `tn` for plurals) and translated in `lib/i18n/pt-BR.sh` and `lib/i18n/es.sh`; `make check` fails when a message is missing from a catalog. CI runs the tests on macOS, bash 3.2, Ubuntu, Fedora and Arch.
 
 ## License
 

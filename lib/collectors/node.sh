@@ -38,7 +38,7 @@ node_backup() {
     node --version > "$1/versions.txt" || return 1
   fi
   save_file "$HOME/.nvmrc" "$1/home"
-  summary "$1" "$(count_lines "$1/versions.txt") versions via $(cat "$1/manager")$( [ -s "$1/default" ] && printf ', default %s' "$(cat "$1/default")")"
+  summary "$1" "$(tn "%d version via %s" "%d versions via %s" "$(count_lines "$1/versions.txt")" "$(cat "$1/manager")")$( [ -s "$1/default" ] && t ", default %s" "$(cat "$1/default")")"
 }
 
 node_restore() {
@@ -49,7 +49,7 @@ node_restore() {
   case "$manager" in
     nvm)
       if [ ! -s "$dir/nvm.sh" ]; then
-        step "Installing nvm"
+        step "$(t "Installing %s" nvm)"
         # PROFILE=/dev/null: the restored .zshrc already loads nvm.
         act_sh "curl -fsSL $NVM_INSTALL_URL | PROFILE=/dev/null bash" || return 1
       fi
@@ -69,7 +69,7 @@ node_restore() {
       while IFS= read -r v; do act volta install "node@${v#v}"; done < <(pkg_filter < "$1/versions.txt")
       ;;
     system)
-      dim "  Node $(cat "$1/versions.txt") was installed system-wide (Brewfile/packages cover it)"
+      dim "  $(t "Node %s was installed system-wide (Brewfile/packages cover it)" "$(cat "$1/versions.txt")")"
       ;;
   esac
   restore_home "$1/home" ".nvmrc"

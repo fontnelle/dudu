@@ -30,35 +30,37 @@ load_libs() {
 
 load_libs
 
+# "  dudu backup              Save installs..." with the command padded by characters.
+usage_row() { # <command> <description>
+  printf '  %s %s\n' "$(pad "$1" 24)" "$2"
+}
+
 usage() {
-  cat <<EOF
-${BOLD}dudu${NC} $VERSION: back up and restore your dev setup.
-
-${BOLD}Usage${NC}
-  dudu                     Interactive menu
-  dudu backup              Save installs & configs to your destination
-  dudu restore             Reinstall everything on this machine
-  dudu status              What changed since the last backup
-  dudu outdated [--all]    Check updates for your tools (read-only)
-  dudu secrets             Keys found in your config files
-  dudu schedule on [HH:MM] Back up every day (off | status)
-  dudu config              Choose destination & what to include
-  dudu update              Update dudu itself
-  dudu completion zsh|bash|highlight
-                           Print shell completion or highlighting
-
-${BOLD}Options${NC}
-  --dry-run                Show what would happen, change nothing
-  --only brew,node         Limit to some collectors
-  --from <host>            (restore) Use the backup of another machine
-  --file <dir>             (restore) Use a backup folder directly
-  -y, --yes                (restore) Do not ask for confirmation
-  --debug                  Trace every step into the log
-  -v, --version            Print version
-
-Collectors: $(echo "$DUDU_COLLECTORS" | tr ' ' ',')
-Docs: $DUDU_HOMEPAGE
-EOF
+  printf '%sdudu%s %s: %s\n\n' "$BOLD" "$NC" "$VERSION" "$(t "back up and restore your dev setup.")"
+  printf '%s%s%s\n' "$BOLD" "$(t "Usage")" "$NC"
+  usage_row "dudu" "$(t "Interactive menu")"
+  usage_row "dudu backup" "$(t "Save installs & configs to your destination")"
+  usage_row "dudu restore" "$(t "Reinstall everything on this machine")"
+  usage_row "dudu status" "$(t "What changed since the last backup")"
+  usage_row "dudu outdated [--all]" "$(t "Check updates for your tools (read-only)")"
+  usage_row "dudu secrets" "$(t "Keys found in your config files")"
+  usage_row "dudu schedule on [HH:MM]" "$(t "Back up every day (%s)" "off | status")"
+  usage_row "dudu config" "$(t "Choose destination & what to include")"
+  usage_row "dudu update" "$(t "Update dudu itself")"
+  printf '  %s\n' "dudu completion zsh|bash|highlight"
+  usage_row "" "$(t "Print shell completion or highlighting")"
+  printf '\n%s%s%s\n' "$BOLD" "$(t "Options")" "$NC"
+  usage_row "--dry-run" "$(t "Show what would happen, change nothing")"
+  usage_row "--only brew,node" "$(t "Limit to some collectors")"
+  usage_row "--from <host>" "$(t "(restore) Use the backup of another machine")"
+  usage_row "--file <dir>" "$(t "(restore) Use a backup folder directly")"
+  usage_row "-y, --yes" "$(t "(restore) Do not ask for confirmation")"
+  usage_row "--debug" "$(t "Trace every step into the log")"
+  usage_row "-v, --version" "$(t "Print version")"
+  echo
+  printf '%s %s\n' "$(t "Collectors:")" "$(echo "$DUDU_COLLECTORS" | tr ' ' ',')"
+  printf '%s %s\n' "$(t "Language:")" "$(i18n_name "$DUDU_LANG_ACTIVE") (dudu config set language auto|en|pt-BR|es)"
+  printf '%s %s\n' "$(t "Docs:")" "$DUDU_HOMEPAGE"
 }
 
 main_header() {
@@ -74,15 +76,15 @@ main_menu() {
   fi
   check_for_updates_bg
   while true; do
-    MENU_FOOTER="↑↓  |  Enter  |  V Version  |  Q Quit"
+    MENU_FOOTER="↑↓  |  Enter  |  $(t "V Version")  |  $(t "Q Quit")"
     MENU_HOTKEYS="v"
     menu_select main_header \
-      "Backup|Save installs & configs" \
-      "Restore|Reinstall on a new machine" \
-      "Status|What changed since last backup" \
-      "Outdated|Check updates for your tools" \
-      "Secrets|Keys found in your config files" \
-      "Settings|Destination & what to include" || break
+      "$(t "Backup")|$(t "Save installs & configs")" \
+      "$(t "Restore")|$(t "Reinstall on a new machine")" \
+      "$(t "Status")|$(t "What changed since last backup")" \
+      "$(t "Outdated")|$(t "Check updates for your tools")" \
+      "$(t "Secrets")|$(t "Keys found in your config files")" \
+      "$(t "Settings")|$(t "Destinations, language, encryption, schedule")" || break
     # A menu can stay open for hours: pick up code changed since (edits, dudu update).
     load_libs
     clear_screen
@@ -92,10 +94,11 @@ main_menu() {
       2) cmd_status ;;
       3) cmd_outdated ;;
       4) cmd_secrets ;;
-      5) cmd_config ;;
+      # Settings is a menu of its own, with its own way back.
+      5) cmd_config; dudu_unlock; continue ;;
       -1) [ "$MENU_KEY" = v ] && printf 'dudu %s\n' "$VERSION" ;;
     esac
-    printf '\n%sPress any key to return to the menu…%s' "$GRAY" "$NC"
+    printf '\n%s%s%s' "$GRAY" "$(t "Press any key to return to the menu…")" "$NC"
     read -rsn1 _
   done
   clear_screen
@@ -110,13 +113,14 @@ debug_on() {
     set -x
   else
     # bash 3.2 cannot send the trace elsewhere than stderr.
-    printf 'dudu: --debug needs bash 4.1+ (brew install bash); logging steps only\n' >&2
+    printf 'dudu: %s\n' "$(t "--debug needs bash 4.1+ (brew install bash); logging steps only")" >&2
   fi
 }
 
 main() {
   # Everything dudu writes (backups, logs, temp files) is readable by this user only.
   umask 077
+  i18n_init
   mkdir -p "$DUDU_CACHE_DIR"
   [ -f "$DUDU_LOG" ] && chmod 600 "$DUDU_LOG" 2>/dev/null
   log_rotate
@@ -140,8 +144,8 @@ main() {
       local rc=0
       cmd_backup "$@" || rc=$?
       if [ -n "${DUDU_SCHEDULED:-}" ] && [ $rc -ne 0 ]; then
-        if [ $rc -eq 2 ]; then schedule_notify "Backup saved with problems, see dudu status"
-        else schedule_notify "Backup failed, see $(tilde "$DUDU_LOG")"; fi
+        if [ $rc -eq 2 ]; then schedule_notify "$(t "Backup saved with problems, see dudu status")"
+        else schedule_notify "$(t "Backup failed, see %s" "$(tilde "$DUDU_LOG")")"; fi
       fi
       return $rc
       ;;
@@ -155,7 +159,7 @@ main() {
     completion) cmd_completion "$@" ;;
     -v|--version|version) printf 'dudu %s\n' "$VERSION" ;;
     -h|--help|help) usage ;;
-    *) err "Unknown command: $cmd"; echo; usage; exit 1 ;;
+    *) err "$(t "Unknown command: %s" "$cmd")"; echo; usage; exit 1 ;;
   esac
 }
 

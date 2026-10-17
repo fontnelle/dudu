@@ -20,15 +20,15 @@ folder_save() { # <root> <bundle> <host>
   need=$(du -sk "$2" | awk '{ print $1 * 2 + 1024 }')
   free=$(folder_free_kb "$dir")
   if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
-    err "Not enough free space in $dir"
+    err "$(t "Not enough free space in %s" "$dir")"
     return 1
   fi
-  [ -e "$dir/$stamp" ] && { err "$dir/$stamp already exists"; return 1; }
+  [ -e "$dir/$stamp" ] && { err "$(t "%s already exists" "$dir/$stamp")"; return 1; }
   tmp="$dir/.$stamp.partial"
   rm -rf "$tmp"
   if ! cp -R "$2" "$tmp" || ! bundle_verify "$tmp"; then
     rm -rf "$tmp"
-    err "The copy in $dir does not match the backup"
+    err "$(t "The copy in %s does not match the backup" "$dir")"
     return 1
   fi
   chmod -R go-rwx "$tmp" 2>/dev/null
@@ -105,11 +105,11 @@ folder_load() { # <root> <host> <out>
   for stamp in $(folder_candidates "$1" "$2"); do
     [ -z "$first" ] && first=$stamp
     if ! folder_materialize "$1/$2/$stamp"; then
-      warn "iCloud did not download $stamp in time, trying an older backup" >&2
+      warn "$(t "iCloud did not download %s in time, trying an older backup" "$stamp")" >&2
       continue
     fi
     if bundle_verify "$1/$2/$stamp"; then
-      [ "$stamp" != "$first" ] && warn "The newest backup was damaged, using $stamp" >&2
+      [ "$stamp" != "$first" ] && warn "$(t "The newest backup was damaged, using %s" "$stamp")" >&2
       cp -R "$1/$2/$stamp/." "$3/" && return 0
     fi
     printf 'damaged backup skipped: %s/%s/%s\n' "$1" "$2" "$stamp" >> "$DUDU_LOG"

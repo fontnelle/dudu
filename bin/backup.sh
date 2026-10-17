@@ -65,14 +65,20 @@ collect_all() { # <bundle> [quiet]
       124) why="took longer than ${DUDU_STEP_TIMEOUT:-300}s" ;;
       *) why="failed (see $(tilde "$DUDU_LOG"))" ;;
     esac
+    # The log stays in English; the screen gets the translated reason.
     printf '%s: %s\n' "$c" "$why" >> "$DUDU_LOG"
+    case $rc in
+      98) why=$(t "listed nothing") ;;
+      124) why=$(t "took longer than %ss" "${DUDU_STEP_TIMEOUT:-300}") ;;
+      *) why=$(t "failed (see %s)" "$(tilde "$DUDU_LOG")") ;;
+    esac
     TROUBLE="$TROUBLE $c"
     if collector_carry "$bundle" "$c"; then
-      [ -n "$quiet" ] || step_row warn "$c" "$why, kept the copy from $(carry_date)"
+      [ -n "$quiet" ] || step_row warn "$c" "$(t "%s, kept the copy from %s" "$why" "$(carry_date)")"
     else
       rm -rf "${bundle:?}/$c"
       FAILED="$FAILED $c"
-      [ -n "$quiet" ] || step_row warn "$c" "$why, not in this backup"
+      [ -n "$quiet" ] || step_row warn "$c" "$(t "%s, not in this backup" "$why")"
     fi
   done
   COLLECTED=${COLLECTED# }
@@ -128,31 +134,36 @@ write_manifest() { # <bundle>
 EOF
 }
 
+# The readable part of a backup (and of its Apple Notes note), in the language of the
+# machine that made it. restore.sh reads the "## Not backed up" heading back: it stays
+# English at the start of the line, with the translation after it.
 write_restore_md() { # <bundle>
-  local c
+  local c h line
+  line=$(t "line")
   {
-    echo "# dudu backup: $DUDU_BACKUP_HOST"
+    echo "# $(t "dudu backup: %s" "$DUDU_BACKUP_HOST")"
     echo
     echo "$(os_pretty) ($(uname -m)), $(date '+%Y-%m-%d %H:%M'), dudu $VERSION"
     echo
-    echo "## Contents"
+    echo "## $(t "Contents")"
     for c in $COLLECTED; do
       echo "- $c: $(cat "$1/$c/.summary" 2>/dev/null)"
     done
     echo
-    echo "## Restore on a new machine"
+    echo "## $(t "Restore on a new machine")"
     echo
     echo "    curl -fsSL https://raw.githubusercontent.com/$DUDU_REPO/main/install.sh | bash"
-    echo "    dudu config     # pick the same destination"
+    echo "    dudu config     # $(t "pick the same destination")"
     echo "    dudu restore --from $DUDU_BACKUP_HOST"
     if [ -s "$DUDU_REDACT_LOG" ]; then
       echo
-      echo "## Secrets masked (fill these in by hand)"
-      sort -u -t: -k1,1 -k2,2n "$DUDU_REDACT_LOG" | awk -F: '{ printf "- %s line %s: %s\n", $1, $2, $3 }'
+      echo "## $(t "Secrets masked (fill these in by hand)")"
+      sort -u -t: -k1,1 -k2,2n "$DUDU_REDACT_LOG" | awk -F: -v line="$line" '{ printf "- %s %s %s: %s\n", $1, line, $2, $3 }'
     fi
     if [ -s "$DUDU_SKIP_LOG" ]; then
       echo
-      echo "## Not backed up on purpose (keys and credentials, copy them securely)"
+      h=$(t "Not backed up on purpose (keys and credentials, copy them securely)")
+      case "$h" in "Not backed up"*) echo "## $h" ;; *) echo "## Not backed up · $h" ;; esac
       sort -u "$DUDU_SKIP_LOG" | sed 's/^/- /'
     fi
   } > "$1/RESTORE.md"
@@ -181,7 +192,7 @@ parse_common_opts() {
       # Run by dudu schedule: no prompts, no animation.
       --scheduled) DUDU_SCHEDULED=1 DUDU_YES=1 DUDU_NO_SPINNER=1 ;;
       -h|--help) usage; exit 0 ;;
-      *) die "Unknown option: $1" ;;
+      *) die "$(t "Unknown option: %s" "$1")" ;;
     esac
     shift
   done
@@ -194,7 +205,7 @@ cmd_backup() {
   local d usable=""
   for d in $(dest_list); do "${d}_available" 2>/dev/null && usable="$usable $d"; done
   if [ -z "$usable" ]; then
-    err "None of your destinations ($(dest_labels)) is available on this machine. Pick another with: dudu config"
+    err "$(t "None of your destinations (%s) is available on this machine. Pick another with: dudu config" "$(dest_labels)")"
     return 1
   fi
 
@@ -213,29 +224,31 @@ cmd_backup() {
   : > "$DUDU_SKIP_LOG"
   printf '\n=== backup %s ===\n' "$stamp" >> "$DUDU_LOG"
 
-  printf '\n%sBacking up %s%s\n' "$BOLD" "$DUDU_BACKUP_HOST" "$NC"
+  printf '\n%s%s%s\n' "$BOLD" "$(t "Backing up %s" "$DUDU_BACKUP_HOST")" "$NC"
   [ "$DUDU_BACKUP_HOST" != "$(dudu_host)" ] &&
-    warn "Another machine already backs up as $(dudu_host): this one uses $DUDU_BACKUP_HOST"
+    warn "$(t "Another machine already backs up as %s: this one uses %s" "$(dudu_host)" "$DUDU_BACKUP_HOST")"
   local nd
   nd=$(dest_list | wc -w | tr -d ' ')
-  dim "To $nd destination$([ "$nd" -gt 1 ] && echo s): $(dest_labels)"
+  dim "$(tn "To %d destination: %s" "To %d destinations: %s" "$nd" "$(dest_labels)")"
   if [ -n "$DUDU_DRY_RUN" ]; then
     echo
     local c
     for c in $DUDU_COLLECTORS; do
-      collector_enabled "$c" && spin "$c" "${c}_detect" && row "${BLUE}•${NC}" "$c" "would be backed up"
+      collector_enabled "$c" && spin "$c" "${c}_detect" && row "${BLUE}•${NC}" "$c" "$(t "would be backed up")"
     done
     rm -rf "$work"
     echo
-    dim "Dry run: nothing was written."
+    dim "$(t "Dry run: nothing was written.")"
     return 0
   fi
 
-  phase "1/2" "Collecting" "what's installed on this machine"
+  phase "1/2" "$(t "Collecting")" "$(t "what's installed on this machine")"
   collect_all "$bundle"
-  phase_done "$(echo "$COLLECTED" | wc -w | tr -d ' ') tools found"
+  local n_found
+  n_found=$(echo "$COLLECTED" | wc -w | tr -d ' ')
+  phase_done "$(tn "%d tool found" "%d tools found" "$n_found")"
   if [ -z "$COLLECTED" ]; then
-    err "Nothing was collected"
+    err "$(t "Nothing was collected")"
     rm -rf "$work"
     return 1
   fi
@@ -250,20 +263,20 @@ cmd_backup() {
   done
   if [ "$DUDU_ENCRYPT" = on ]; then
     if ! crypto_seal "$bundle"; then
-      err "Could not encrypt the backup, nothing was saved"
+      err "$(t "Could not encrypt the backup, nothing was saved")"
       rm -rf "$work"
       return 1
     fi
-    step_row ok "encrypted" "AES-256 with your backup password"
+    step_row ok "$(t "encrypted")" "$(t "AES-256 with your backup password")"
   fi
   bundle_sums "$bundle"
 
   local n_dest
   n_dest=$(dest_list | wc -w | tr -d ' ')
-  phase "2/2" "Saving" "to $n_dest destination$([ "$n_dest" -gt 1 ] && echo s)"
+  phase "2/2" "$(t "Saving")" "$(tn "to %d destination" "to %d destinations" "$n_dest")"
   save_all "$bundle" "$stamp"
   local saved=$SAVED_COUNT
-  phase_done "$saved of $n_dest saved"
+  phase_done "$(t "%d of %d saved" "$saved" "$n_dest")"
   [ "$saved" -gt 0 ] && carry_update "$work/carry"
 
   backup_done_summary "$bundle" "$saved" $((SECONDS - started))
@@ -285,13 +298,13 @@ save_all() { # <bundle> <stamp>
     t0=$SECONDS
     if ! "${d}_available" 2>/dev/null; then
       PROG_DONE=$((PROG_DONE + 1))
-      step_row fail "$(dest_label "$d")" "not available on this machine"
+      step_row fail "$(dest_label "$d")" "$(t "not available on this machine")"
       SAVED_RESULTS="${SAVED_RESULTS}fail|$d"$'\n'
       continue
     fi
     if ! DUDU_STEP_TIMEOUT=${DUDU_SAVE_TIMEOUT:-1800} spin "$(dest_label "$d")" "${d}_save" "$1" "$DUDU_BACKUP_HOST"; then
       PROG_DONE=$((PROG_DONE + 1))
-      step_row fail "$(dest_label "$d")" "could not save, see $(tilde "$DUDU_LOG")"
+      step_row fail "$(dest_label "$d")" "$(t "could not save, see %s" "$(tilde "$DUDU_LOG")")"
       SAVED_RESULTS="${SAVED_RESULTS}fail|$d"$'\n'
       continue
     fi
@@ -299,7 +312,7 @@ save_all() { # <bundle> <stamp>
     # Folder destinations are checked on disk, not trusted.
     dir=$(dest_saved_dir "$d" "$2")
     if [ -n "$dir" ] && [ ! -f "$dir/manifest.json" ]; then
-      step_row fail "$(dest_label "$d")" "not found after saving"
+      step_row fail "$(dest_label "$d")" "$(t "not found after saving")"
       SAVED_RESULTS="${SAVED_RESULTS}fail|$d"$'\n'
       continue
     fi
@@ -342,17 +355,17 @@ backup_done_summary() { # <bundle> <saved count> <seconds>
   count=$(echo "$COLLECTED" | wc -w | tr -d ' ')
   size=$(du -sh "$1" 2>/dev/null | awk '{ print $1 }')
   total=$(dest_list | wc -w | tr -d ' ')
-  stats="$count tool$([ "$count" -ne 1 ] && echo s) · ${size:-?} · $2/$total destination$([ "$total" -ne 1 ] && echo s) · $(fmt_secs "$3")"
+  stats="$(tn "%d tool" "%d tools" "$count") · ${size:-?} · $2/$(tn "%d destination" "%d destinations" "$total") · $(fmt_secs "$3")"
 
   echo
   if [ "$2" -eq "$total" ] && [ -z "$TROUBLE" ]; then
-    printf '%s%s✓ Backup complete%s   %s%s%s\n' "$GREEN" "$BOLD" "$NC" "$GRAY" "$stats" "$NC"
+    printf '%s%s✓ %s%s   %s%s%s\n' "$GREEN" "$BOLD" "$(t "Backup complete")" "$NC" "$GRAY" "$stats" "$NC"
   elif [ "$2" -eq "$total" ]; then
-    printf '%s%s⚠ Backup saved, could not read: %s%s   %s%s%s\n' "$YELLOW" "$BOLD" "$TROUBLE" "$NC" "$GRAY" "$stats" "$NC"
+    printf '%s%s⚠ %s%s   %s%s%s\n' "$YELLOW" "$BOLD" "$(t "Backup saved, could not read: %s" "$TROUBLE")" "$NC" "$GRAY" "$stats" "$NC"
   elif [ "$2" -gt 0 ]; then
-    printf '%s%s⚠ Backup partly saved%s   %s%s%s\n' "$YELLOW" "$BOLD" "$NC" "$GRAY" "$stats" "$NC"
+    printf '%s%s⚠ %s%s   %s%s%s\n' "$YELLOW" "$BOLD" "$(t "Backup partly saved")" "$NC" "$GRAY" "$stats" "$NC"
   else
-    printf '%s%s✗ Backup not saved%s   %s%s%s\n' "$RED" "$BOLD" "$NC" "$GRAY" "$stats" "$NC"
+    printf '%s%s✗ %s%s   %s%s%s\n' "$RED" "$BOLD" "$(t "Backup not saved")" "$NC" "$GRAY" "$stats" "$NC"
   fi
 
   backup_privacy_summary
@@ -365,10 +378,10 @@ backup_done_summary() { # <bundle> <saved count> <seconds>
   if is_macos && [ -t 0 ] && [ -t 1 ] && [ -z "${DUDU_YES:-}" ]; then
     if [ -n "$first_dir" ]; then
       echo
-      confirm "Show in Finder?" && open "$first_dir"
+      confirm "$(t "Show in Finder?")" && open "$first_dir"
     elif [ -n "$has_notes" ]; then
       echo
-      confirm "Open Notes?" && open -a Notes
+      confirm "$(t "Open Notes?")" && open -a Notes
     fi
   fi
   return 0
@@ -383,23 +396,23 @@ backup_privacy_summary() {
     n=$(sort -u "$DUDU_SKIP_LOG" | grep -c .)
     kinds=$(sort -u "$DUDU_SKIP_LOG" | while IFS= read -r f; do secret_kind "$f"; done | awk '!seen[$0]++' |
       paste -sd, - | sed 's/,/, /g')
-    printf '  %s●%s %-24s %s%s%s\n' "$GREEN" "$NC" "$n key file$([ "$n" -gt 1 ] && echo s) kept local" "$GRAY" "$kinds" "$NC"
-    printf '    %sCopy them to the new machine yourself. Full list in RESTORE.md.%s\n' "$GRAY" "$NC"
+    printf '  %s●%s %s %s%s%s\n' "$GREEN" "$NC" "$(pad "$(tn "%d key file kept local" "%d key files kept local" "$n")" 24)" "$GRAY" "$kinds" "$NC"
+    printf '    %s%s%s\n' "$GRAY" "$(t "Copy them to the new machine yourself. Full list in RESTORE.md.")" "$NC"
   fi
   if [ -s "$DUDU_REDACT_LOG" ]; then
     n=$(sort -u "$DUDU_REDACT_LOG" | grep -c .)
-    printf '  %s⚠%s %s%d key%s found in your config files, masked in the backup%s\n' "$YELLOW" "$NC" "$BOLD" \
-      "$n" "$([ "$n" -gt 1 ] && echo s)" "$NC"
+    printf '  %s⚠%s %s%s%s\n' "$YELLOW" "$NC" "$BOLD" \
+      "$(tn "%d key found in your config files, masked in the backup" "%d keys found in your config files, masked in the backup" "$n")" "$NC"
     secrets_list_found "$DUDU_REDACT_LOG" 5
-    printf '    %sThe values stay on this machine. To move them out of your dotfiles: %sdudu secrets%s\n' \
-      "$GRAY" "$NC$BOLD" "$NC"
+    printf '    %s%s %sdudu secrets%s\n' \
+      "$GRAY" "$(t "The values stay on this machine. To move them out of your dotfiles:")" "$NC$BOLD" "$NC"
   fi
 }
 
 # Short human name for a credential file.
 secret_kind() {
   case "$1" in
-    *"(could not be checked"*) echo "unchecked file" ;;
+    *"(could not be checked"*) t "unchecked file"; echo ;;
     *.ssh/*) echo SSH ;;
     *gh/hosts.yml) echo "GitHub CLI" ;;
     *.docker/*) echo Docker ;;
@@ -411,7 +424,7 @@ secret_kind() {
     *.gem/*) echo RubyGems ;;
     *.cargo/*) echo Cargo ;;
     *rclone*) echo rclone ;;
-    *.secrets) echo "Shell keys" ;;
+    *.secrets) t "Shell keys"; echo ;;
     *) basename "$1" ;;
   esac
 }

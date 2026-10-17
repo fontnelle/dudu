@@ -7,7 +7,8 @@
 #   CL_DETAIL[i]  gray text after the label
 #   CL_ON[i]      1 when checked (items only)
 #   CL_LOCKED[i]  optional, 1 = cannot be checked (shown dimmed)
-# Optional: CL_FLAT=1 (no groups, no indent), CL_ACTION (Enter label, default "Update").
+# Optional: CL_FLAT=1 (no groups, no indent), CL_ACTION (Enter label, default "Update"),
+# CL_NOTE (lines shown under the title).
 # checklist_select <title> returns 0 on Enter (CL_ON holds the choice), 1 on cancel.
 
 checklist_rows() {
@@ -76,28 +77,29 @@ checklist_draw_row() { # <index> <is cursor>
     elif [ "$on" -eq "$total" ]; then box="${GREEN}[✓]${NC}"
     else box="${YELLOW}[–]${NC}"
     fi
-    printf '\033[2K%s%s %s%s%-12s%s %s%s selected%s\n' "$pointer" "$box" "$BOLD" "$color" "${CL_LABEL[$i]}" "$NC" "$GRAY" "$count" "$NC"
+    printf '\033[2K%s%s %s%s%s%s %s%s%s\n' "$pointer" "$box" "$BOLD" "$color" "$(pad "${CL_LABEL[$i]}" 12)" "$NC" "$GRAY" "$(t "%s selected" "$count")" "$NC"
   else
     local indent="    " width=26
     [ -n "${CL_FLAT:-}" ] && { indent=""; width=16; }
     if [ "${CL_LOCKED[$i]:-}" = 1 ]; then
-      printf '\033[2K%s%s%s[ ] %-*s %s%s\n' "$pointer" "$indent" "$GRAY" "$width" "${CL_LABEL[$i]}" "${CL_DETAIL[$i]}" "$NC"
+      printf '\033[2K%s%s%s[ ] %s %s%s\n' "$pointer" "$indent" "$GRAY" "$(pad "${CL_LABEL[$i]}" "$width")" "${CL_DETAIL[$i]}" "$NC"
       return
     fi
     if [ "${CL_ON[$i]}" = 1 ]; then box="${GREEN}[✓]${NC}"; else box="[ ]"; fi
-    printf '\033[2K%s%s%s %s%-*s%s %s%s%s\n' "$pointer" "$indent" "$box" "$color" "$width" "${CL_LABEL[$i]}" "$NC" "$GRAY" "${CL_DETAIL[$i]}" "$NC"
+    printf '\033[2K%s%s%s %s%s%s %s%s%s\n' "$pointer" "$indent" "$box" "$color" "$(pad "${CL_LABEL[$i]}" "$width")" "$NC" "$GRAY" "${CL_DETAIL[$i]}" "$NC"
   fi
 }
 
 checklist_select() { # <title>
-  local title=$1 n=${#CL_KIND[@]} cur=0 top=0 view rows i key last
+  local title=$1 n=${#CL_KIND[@]} cur=0 top=0 view rows i key last note_lines=0
   [ "$n" -gt 0 ] || return 1
+  [ -n "${CL_NOTE:-}" ] && note_lines=$(printf '%s\n' "$CL_NOTE" | wc -l | tr -d ' ')
 
   hide_cursor
   clear_screen
   while true; do
     rows=$(checklist_rows)
-    view=$((rows - 6))
+    view=$((rows - 6 - note_lines))
     [ $view -lt 3 ] && view=3
     # Keep the cursor inside the visible window.
     [ $cur -lt $top ] && top=$cur
@@ -106,17 +108,19 @@ checklist_select() { # <title>
     [ $last -ge "$n" ] && last=$((n - 1))
 
     printf '\033[H\033[2K%s%s%s\n' "$BOLD" "$title" "$NC"
-    if [ $top -gt 0 ]; then printf '\033[2K%s  ↑ %d more%s\n' "$GRAY" "$top" "$NC"; else printf '\033[2K\n'; fi
+    [ -n "${CL_NOTE:-}" ] && printf '%s\n' "$CL_NOTE"
+    if [ $top -gt 0 ]; then printf '\033[2K%s  ↑ %s%s\n' "$GRAY" "$(t "%d more" "$top")" "$NC"; else printf '\033[2K\n'; fi
     for ((i = top; i <= last; i++)); do
       if [ $i -eq $cur ]; then checklist_draw_row "$i" 1; else checklist_draw_row "$i" 0; fi
     done
     if [ $last -lt $((n - 1)) ]; then
-      printf '\033[2K%s  ↓ %d more%s\n' "$GRAY" $((n - 1 - last)) "$NC"
+      printf '\033[2K%s  ↓ %s%s\n' "$GRAY" "$(t "%d more" $((n - 1 - last)))" "$NC"
     else
       printf '\033[2K\n'
     fi
-    printf '\033[2K%s↑↓ Move · Space Select · A All · Enter %s · Q Cancel%s   %s%s selected%s\033[J' \
-      "$GRAY" "${CL_ACTION:-Update}" "$NC" "$GREEN" "$(checklist_selected_count)" "$NC"
+    printf '\033[2K%s%s%s   %s%s%s\033[J' \
+      "$GRAY" "$(t "↑↓ Move · Space Select · A All · Enter %s · Q Cancel" "${CL_ACTION:-$(t "Update")}")" "$NC" \
+      "$GREEN" "$(t "%s selected" "$(checklist_selected_count)")" "$NC"
 
     key=$(read_key)
     case "$key" in

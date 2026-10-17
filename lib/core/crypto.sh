@@ -73,12 +73,12 @@ crypto_password() {
 # Asks for a new password twice and stores it.
 crypto_set_password() {
   local a b
-  has openssl || { err "Encryption needs openssl, install it first"; return 1; }
-  a=$(crypto_ask "New backup password (12+ characters): ") || { err "A password can only be set from a terminal"; return 1; }
-  if [ "${#a}" -lt 12 ]; then err "Too short: use at least 12 characters (a passphrase of a few words works well)"; return 1; fi
-  b=$(crypto_ask "Repeat it: ")
-  [ "$a" = "$b" ] || { err "The passwords do not match"; return 1; }
-  crypto_store_password "$a" || { err "Could not store the password"; return 1; }
+  has openssl || { err "$(t "Encryption needs openssl, install it first")"; return 1; }
+  a=$(crypto_ask "$(t "New backup password (12+ characters): ")") || { err "$(t "A password can only be set from a terminal")"; return 1; }
+  if [ "${#a}" -lt 12 ]; then err "$(t "Too short: use at least 12 characters (a passphrase of a few words works well)")"; return 1; fi
+  b=$(crypto_ask "$(t "Repeat it: ")")
+  [ "$a" = "$b" ] || { err "$(t "The passwords do not match")"; return 1; }
+  crypto_store_password "$a" || { err "$(t "Could not store the password")"; return 1; }
   CRYPTO_PW=$a
 }
 
@@ -98,7 +98,7 @@ crypto_mac() { # <file> <key hex>
 # a RESTORE.md that only says how to decrypt.
 crypto_seal() { # <bundle>
   local b=$1 tmp salt key
-  crypto_password || { err "No backup password: run dudu config set encrypt on"; return 1; }
+  crypto_password || { err "$(t "No backup password: run dudu config set encrypt on")"; return 1; }
   tmp=$(mktemp -d)
   tmp_register "$tmp"
   tar -C "$b" -czf "$tmp/payload.tgz" . || { rm -rf "$tmp"; return 1; }
@@ -113,14 +113,14 @@ crypto_seal() { # <bundle>
   mv "$tmp/backup.enc" "$tmp/backup.mac" "$tmp/manifest.json" "$b/"
   rm -rf "$tmp"
   {
-    echo "# dudu backup (encrypted)"
+    echo "# $(t "dudu backup (encrypted)")"
     echo
-    echo "Everything is inside backup.enc, encrypted with your backup password."
-    echo "Restore it on a new machine with:"
+    t "Everything is inside backup.enc, encrypted with your backup password."; echo
+    t "Restore it on a new machine with:"; echo
     echo
     echo "    curl -fsSL https://raw.githubusercontent.com/$DUDU_REPO/main/install.sh | bash"
-    echo "    dudu config     # pick the same destination"
-    echo "    dudu restore    # asks for the password"
+    echo "    dudu config     # $(t "pick the same destination")"
+    echo "    dudu restore    # $(t "asks for the password")"
   } > "$b/RESTORE.md"
 }
 
@@ -131,27 +131,27 @@ crypto_is_sealed() { [ -f "$1/backup.enc" ]; }
 crypto_open() { # <dir>
   local d=$1 tag salt mac key tries=0
   crypto_is_sealed "$d" || return 0
-  has openssl || { err "This backup is encrypted and needs openssl"; return 1; }
+  has openssl || { err "$(t "This backup is encrypted and needs openssl")"; return 1; }
   read -r tag salt mac < "$d/backup.mac" 2>/dev/null
   if [ "$tag" != dudu-mac-v1 ] || ! printf '%s' "$salt" | grep -Eq '^[0-9a-fA-F]{16}$'; then
-    err "The backup's integrity file is missing or damaged"
+    err "$(t "The backup's integrity file is missing or damaged")"
     return 1
   fi
   while :; do
-    crypto_password || { err "This backup is encrypted: a password is needed"; return 1; }
+    crypto_password || { err "$(t "This backup is encrypted: a password is needed")"; return 1; }
     key=$(crypto_mac_key "$salt")
     [ -n "$key" ] && [ "$(crypto_mac "$d/backup.enc" "$key")" = "$mac" ] && break
     CRYPTO_PW=""
     tries=$((tries + 1))
     if [ -n "${DUDU_PASSWORD:-}" ] || [ ! -r /dev/tty ] || [ $tries -ge 3 ]; then
-      err "Wrong password, or the backup was modified after it was saved"
+      err "$(t "Wrong password, or the backup was modified after it was saved")"
       return 1
     fi
-    warn "Wrong password, try again"
+    warn "$(t "Wrong password, try again")"
   done
   DUDU_PASSPHRASE=$CRYPTO_PW openssl enc -d -aes-256-cbc -pbkdf2 -iter "$CRYPTO_ITER" \
     -pass env:DUDU_PASSPHRASE -in "$d/backup.enc" | tar -xzf - -C "$d" || {
-    err "Could not decrypt the backup"
+    err "$(t "Could not decrypt the backup")"
     return 1
   }
   rm -f "$d/backup.enc" "$d/backup.mac"

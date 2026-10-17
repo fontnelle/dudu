@@ -28,7 +28,7 @@ editor_backup() { # <cli> <App Name> <config dir> <backup dir>
   if [ -d "$user/snippets" ]; then
     while IFS= read -r f; do save_file "$f" "$4/home"; done < <(find "$user/snippets" -type f)
   fi
-  summary "$4" "$(count_lines "$4/extensions.txt") extensions + settings"
+  summary "$4" "$(tn "%d extension + settings" "%d extensions + settings" "$(count_lines "$4/extensions.txt")")"
 }
 
 # Editor settings from the other OS: "Library/Application Support/Code/User/..." (macOS)
@@ -62,13 +62,13 @@ Library/Application Support/*/User/snippets/*
   [ -s "$3/extensions.txt" ] || return 0
   local cli e
   if ! cli=$(editor_cli "$1" "$2"); then
-    if [ -z "${DUDU_DRY_RUN:-}" ]; then warn "$2 is not installed, skipping extensions"; return 0; fi
+    if [ -z "${DUDU_DRY_RUN:-}" ]; then warn "$(t "%s is not installed, skipping extensions" "$2")"; return 0; fi
     cli=$1
   fi
   while IFS= read -r e; do
-    act "$cli" --install-extension "$e" --force || warn "could not install $e"
+    act "$cli" --install-extension "$e" --force || warn "$(t "could not install %s" "$e")"
   done < <("$cli" --list-extensions 2>/dev/null | missing_pkgs "$3/extensions.txt")
-  [ -z "${DUDU_DRY_RUN:-}" ] && ok "$(count_lines "$3/extensions.txt") extensions in place"
+  [ -z "${DUDU_DRY_RUN:-}" ] && ok "$(tn "%d extension in place" "%d extensions in place" "$(count_lines "$3/extensions.txt")")"
   return 0
 }
 

@@ -28,7 +28,7 @@ menu_select() {
   local header_fn=$1
   shift
   local count=$# sel=0 key i label desc item width=0
-  local footer=${MENU_FOOTER:-"↑↓  |  Enter  |  Q Back"}
+  local footer=${MENU_FOOTER:-"↑↓  |  Enter  |  $(t "Q Back")"}
   # Label column as wide as the longest label, plus a gap before the description.
   for item in "$@"; do
     label=${item%%|*}
@@ -50,9 +50,9 @@ menu_select() {
       [ "$desc" = "$item" ] && desc=""
       printf '\033[2K'
       if [ $i -eq $sel ]; then
-        printf '%s➤ %d. %-*s%s%s\n' "$CYAN" $((i + 1)) "$width" "$label" "$desc" "$NC"
+        printf '%s➤ %d. %s%*s%s%s\n' "$CYAN" $((i + 1)) "$label" $((width - ${#label})) '' "$desc" "$NC"
       else
-        printf '  %d. %-*s%s%s%s\n' $((i + 1)) "$width" "$label" "$GRAY" "$desc" "$NC"
+        printf '  %d. %s%*s%s%s%s\n' $((i + 1)) "$label" $((width - ${#label})) '' "$GRAY" "$desc" "$NC"
       fi
       i=$((i + 1))
     done

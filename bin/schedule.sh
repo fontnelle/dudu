@@ -53,15 +53,15 @@ schedule_on_macos() { # <HH:MM>
 </dict>
 </plist>
 EOF
-  plutil -lint "$f.tmp" >/dev/null || { rm -f "$f.tmp"; err "Could not write $(tilde "$f")"; return 1; }
+  plutil -lint "$f.tmp" >/dev/null || { rm -f "$f.tmp"; err "$(t "Could not write %s" "$(tilde "$f")")"; return 1; }
   launchctl bootout "gui/$(id -u)" "$f" >/dev/null 2>&1
   mv "$f.tmp" "$f"
-  launchctl bootstrap "gui/$(id -u)" "$f" || { err "launchctl could not load $(tilde "$f")"; return 1; }
+  launchctl bootstrap "gui/$(id -u)" "$f" || { err "$(t "launchctl could not load %s" "$(tilde "$f")")"; return 1; }
 }
 
 schedule_on_linux() { # <HH:MM>
   local d
-  has systemctl || { err "No systemd here: add \"dudu backup --scheduled\" to your crontab instead"; return 1; }
+  has systemctl || { err "$(t "No systemd here: add \"%s\" to your crontab instead" "dudu backup --scheduled")"; return 1; }
   d=$(schedule_unit_dir)
   mkdir -p "$d"
   cat > "$d/dudu.service" <<EOF
@@ -85,7 +85,7 @@ Persistent=true
 WantedBy=timers.target
 EOF
   if ! systemctl --user daemon-reload || ! systemctl --user enable --now dudu.timer >/dev/null 2>&1; then
-    err "systemctl could not enable dudu.timer"
+    err "$(t "systemctl could not enable %s" "dudu.timer")"
     return 1
   fi
 }
@@ -119,10 +119,10 @@ APPLESCRIPT
 schedule_status() {
   local t
   if t=$(schedule_time) && [ -n "$t" ]; then
-    ok "Daily backup at $t"
-    dim "  Turn it off with: dudu schedule off"
+    ok "$(t "Daily backup at %s" "$t")"
+    dim "  $(t "Turn it off with: %s" "dudu schedule off")"
   else
-    dim "No scheduled backup. Turn it on with: dudu schedule on [HH:MM]"
+    dim "$(t "No scheduled backup. Turn it on with: %s" "dudu schedule on [HH:MM]")"
   fi
 }
 
@@ -131,25 +131,25 @@ cmd_schedule() {
   case "${1:-status}" in
     on)
       local t=${2:-$SCHEDULE_DEFAULT}
-      schedule_valid_time "$t" || { err "Use a time like 12:30"; return 1; }
+      schedule_valid_time "$t" || { err "$(t "Use a time like 12:30")"; return 1; }
       t=$(printf '%02d:%02d' "$((10#${t%%:*}))" "$((10#${t##*:}))")
       ensure_configured || return 1
       if [ "$DUDU_ENCRYPT" = on ] && [ -z "$(crypto_stored_password)" ]; then
-        err "Backups are encrypted but no password is stored: run dudu config encrypt on first"
+        err "$(t "Backups are encrypted but no password is stored: run dudu config set encrypt on first")"
         return 1
       fi
       if is_macos; then schedule_on_macos "$t" || return 1; else schedule_on_linux "$t" || return 1; fi
-      ok "Daily backup at $t"
-      dim "  It runs without a terminal: failures show a notification and go to $(tilde "$DUDU_LOG")."
+      ok "$(t "Daily backup at %s" "$t")"
+      dim "  $(t "It runs without a terminal: failures show a notification and go to %s." "$(tilde "$DUDU_LOG")")"
       # Notes asks for permission once; a scheduled run cannot answer that prompt.
       if list_has "$DUDU_DESTINATION" notes && [ -t 0 ] && [ -t 1 ]; then
         echo
-        confirm "Run a backup now (so macOS can ask for the Notes permission)?" && { echo; cmd_backup; }
+        confirm "$(t "Run a backup now (so macOS can ask for the Notes permission)?")" && { echo; cmd_backup; }
       fi
       return 0
       ;;
-    off) schedule_off; ok "Scheduled backup turned off" ;;
+    off) schedule_off; ok "$(t "Scheduled backup turned off")" ;;
     status) schedule_status ;;
-    *) err "Usage: dudu schedule on [HH:MM] | off | status"; return 1 ;;
+    *) err "$(t "Usage: %s" "dudu schedule on [HH:MM] | off | status")"; return 1 ;;
   esac
 }

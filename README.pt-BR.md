@@ -1,7 +1,7 @@
 <div align="center">
   <h1>dudu</h1>
   <p><b>Faça backup de todo o seu ambiente de desenvolvimento com um comando e devolva tudo numa máquina nova com outro. Pacotes, runtimes, dotfiles e terminal, no macOS e no Linux.</b></p>
-  <p><a href="README.md">English</a> · Português</p>
+  <p><a href="README.md">English</a> · Português · <a href="README.es.md">Español</a></p>
   <a href="https://github.com/fontnelle/dudu/stargazers"><img src="https://img.shields.io/github/stars/fontnelle/dudu?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/fontnelle/dudu/releases"><img src="https://img.shields.io/github/v/release/fontnelle/dudu?label=version&style=flat-square" alt="Versão"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="Licença"></a>
@@ -22,6 +22,7 @@
 - **Criptografado, se você quiser**: AES-256 com uma senha guardada no seu Keychain
 - **Restore seguro**: o backup é tratado como não confiável, conferido pelos checksums, e nenhum arquivo é sobrescrito sem ficar uma cópia
 - **Roda sozinho**: um backup por dia com `dudu schedule on`
+- **Fala a sua língua**: English, Português (Brasil) e Español, pelo idioma do sistema
 - **Bash puro, sem dependências**: funciona com o bash 3.2 que vem no macOS
 
 ## Começando
@@ -50,7 +51,7 @@ dudu status          # o que mudou desde o último backup
 dudu outdated        # atualizações do brew, npm, pip, gems, Node LTS... e atualiza tudo ou escolhe
 dudu secrets         # chaves nos seus arquivos de config, e como movê-las para ~/.secrets
 dudu schedule on     # um backup por dia (12:30, ou: dudu schedule on 08:00)
-dudu config          # onde salvar, o que incluir, criptografia
+dudu config          # destinos, idioma, criptografia, agendamento
 ```
 
 Todos os comandos aceitam `--dry-run` e `--only brew,node,...`. O `restore` também aceita `--from <máquina>` (backup de outro computador), `--file <pasta>` (backup copiado à mão) e `--yes`. Com `--debug`, cada passo vai para `~/.cache/dudu/dudu.log` (precisa de bash 4.1+).
@@ -143,6 +144,17 @@ Com a criptografia ligada, a checagem do MAC vem primeiro: um backup alterado é
 
 `dudu schedule on [HH:MM]` cria um backup diário: um LaunchAgent no macOS e um timer de usuário do systemd no Linux. Ele roda sem terminal, então usa a senha do backup que está guardada, e uma falha aparece como notificação. Se você usa o Apple Notes, faça antes um backup à mão para o macOS pedir a permissão. `dudu schedule status` mostra o agendamento e `dudu schedule off` o remove.
 
+## Idioma
+
+O dudu fala English, Português (Brasil) e Español. Ele segue o idioma do sistema (`LANG`, ou Ajustes do Sistema no macOS) sem precisar configurar nada, e o primeiro uso avisa qual idioma escolheu.
+
+```bash
+dudu config set language es      # en, pt-BR, es, ou auto para voltar a seguir o sistema
+DUDU_LANG=en dudu status         # um comando em outro idioma
+```
+
+Ou pelo menu: **Configurações › Idioma**. O `RESTORE.md` de um backup (e a nota dele no Apple Notes) sai no idioma da máquina que fez o backup. As descrições do autocompletar do zsh seguem a mesma configuração.
+
 ## Autocompletar e highlighting no terminal
 
 ```bash
@@ -159,7 +171,7 @@ Cada ferramenta é um arquivo em `lib/collectors/<nome>.sh`:
 
 ```bash
 foo_detect()   { has foo; }                                   # está nesta máquina?
-foo_backup()   { foo list > "$1/list.txt" || return 1; summary "$1" "N coisas"; }
+foo_backup()   { foo list > "$1/list.txt" || return 1; summary "$1" "$(tn "%d thing" "%d things" "$n")"; }
 foo_restore()  { act foo install ...; }                        # act executa, ou só mostra no --dry-run
 foo_outdated() { foo outdated; }                              # opcional: "nome atual mais_nova" por linha
 foo_upgrade()  { foo upgrade "$1"; }                          # opcional: atualiza um pacote
@@ -170,11 +182,11 @@ Depois inclua o nome em `DUDU_COLLECTORS` no `lib/core/common.sh` (a ordem é a 
 ## Desenvolvimento
 
 ```bash
-make check     # shellcheck + bats
+make check     # shellcheck + bats + catálogos de tradução
 make install   # liga este checkout como ~/.local/bin/dudu
 ```
 
-O código precisa rodar no bash 3.2 (o padrão do macOS): sem arrays associativos, sem `mapfile`, sem `${var,,}`, e `${VAR}` antes de qualquer caractere não ASCII. O CI roda os testes no macOS, no bash 3.2, no Ubuntu, no Fedora e no Arch.
+O código precisa rodar no bash 3.2 (o padrão do macOS): sem arrays associativos, sem `mapfile`, sem `${var,,}`, e `${VAR}` antes de qualquer caractere não ASCII. As mensagens são escritas em inglês como `t "texto %s" "$valor"` (ou `tn` para plural) e traduzidas em `lib/i18n/pt-BR.sh` e `lib/i18n/es.sh`; o `make check` falha quando falta uma mensagem num catálogo. O CI roda os testes no macOS, no bash 3.2, no Ubuntu, no Fedora e no Arch.
 
 ## Licença
 

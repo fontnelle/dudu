@@ -13,33 +13,33 @@ pick_host() {
   if [ "$n" -eq 1 ]; then printf '%s' "$hosts" | head -1; return 0; fi
   # Without a terminal, never guess which machine's dotfiles to install.
   if [ ! -t 0 ]; then
-    err "Backups of several machines found ($(printf '%s' "$hosts" | paste -sd, - | sed 's/,/, /g')): pick one with --from <machine>"
+    err "$(t "Backups of several machines found (%s): pick one with --from <machine>" "$(printf '%s' "$hosts" | paste -sd, - | sed 's/,/, /g')")"
     return 2
   fi
   local items=() h
   while IFS= read -r h; do items+=("$h|"); done <<< "$hosts"
-  MENU_FOOTER="↑↓  |  Enter  |  Q Cancel"
+  MENU_FOOTER="↑↓  |  Enter  |  $(t "Q Cancel")"
   MENU_HOTKEYS=""
   menu_select pick_host_header "${items[@]}" >/dev/tty || return 1
   printf '%s' "$hosts" | sed -n "$((MENU_CHOICE + 1))p"
 }
 
-pick_host_header() { title "Restore from which machine?"; echo; }
+pick_host_header() { title "$(t "Restore from which machine?")"; echo; }
 
 # Fills <out> with the backup to restore. Prints errors itself.
 fetch_backup() { # <out>
   if [ -n "$DUDU_FILE" ]; then
     local src
     src=$(expand_home "$DUDU_FILE")
-    [ -d "$src" ] || { err "Not a folder: $src"; return 1; }
+    [ -d "$src" ] || { err "$(t "Not a folder: %s" "$src")"; return 1; }
     # Accept either a backup folder or a <host> folder with a "latest" file.
     if [ -f "$src/latest" ]; then
       local stamp
       stamp=$(head -1 "$src/latest" | tr -d '\r')
-      valid_stamp "$stamp" || { err "$src/latest does not name a backup"; return 1; }
+      valid_stamp "$stamp" || { err "$(t "%s does not name a backup" "$src/latest")"; return 1; }
       src="$src/$stamp"
     fi
-    cp -R "$src/." "$1/" || { err "Could not read $src"; return 1; }
+    cp -R "$src/." "$1/" || { err "$(t "Could not read %s" "$src")"; return 1; }
     crypto_open "$1"
     return
   fi
@@ -49,11 +49,11 @@ fetch_backup() { # <out>
   host=$(pick_host) || rc=$?
   if [ $rc -eq 2 ]; then return 1; fi
   if [ $rc -ne 0 ] || [ -z "$host" ]; then
-    err "No backups found in $(dest_labels). Run dudu backup on your old machine first."
+    err "$(t "No backups found in %s. Run dudu backup on your old machine first." "$(dest_labels)")"
     return 1
   fi
-  spin "Fetching the newest backup of $host from $(dest_labels)" dest_load_latest "$host" "$1" || {
-    err "Could not read the backup of $host, see $DUDU_LOG"
+  spin "$(t "Fetching the newest backup of %s from %s" "$host" "$(dest_labels)")" dest_load_latest "$host" "$1" || {
+    err "$(t "Could not read the backup of %s, see %s" "$host" "$DUDU_LOG")"
     return 1
   }
   crypto_open "$1"
@@ -79,10 +79,10 @@ restore_check_contents() { # <bundle>
     [ -d "$1/$c" ] || missing="$missing $c"
   done
   for c in $(manifest_list "$1" failed); do failed="$failed $c"; done
-  [ -n "$missing" ] && warn "Listed in the backup but missing from it:$missing"
-  [ -n "$failed" ] && warn "Not in this backup (they failed when it was made):$failed"
+  [ -n "$missing" ] && warn "$(t "Listed in the backup but missing from it:%s" "$missing")"
+  [ -n "$failed" ] && warn "$(t "Not in this backup (they failed when it was made):%s" "$failed")"
   for c in $(manifest_list "$1" carried); do
-    [ -d "$1/$c" ] && dim "  $c is from an earlier backup (it could not be read that day)"
+    [ -d "$1/$c" ] && dim "  $(t "%s is from an earlier backup (it could not be read that day)" "$c")"
   done
   return 0
 }
@@ -98,14 +98,14 @@ cmd_restore() {
 
   fetch_backup "$work" || { rm -rf "$work"; return 1; }
   if [ ! -f "$work/manifest.json" ]; then
-    err "This does not look like a dudu backup (no manifest.json)"
+    err "$(t "This does not look like a dudu backup (no manifest.json)")"
     rm -rf "$work"
     return 1
   fi
 
-  title "Backup of $(manifest_field "$work" host), $(manifest_field "$work" os_version), $(friendly_date "$(manifest_field "$work" created)")"
+  title "$(t "Backup of %s, %s, %s" "$(manifest_field "$work" host)" "$(manifest_field "$work" os_version)" "$(friendly_date "$(manifest_field "$work" created)")")"
   if [ -f "$work/.dudu-source" ]; then
-    dim "From $(dest_label "$(cat "$work/.dudu-source")") (the newest among $(dest_labels))"
+    dim "$(t "From %s (the newest among %s)" "$(dest_label "$(cat "$work/.dudu-source")")" "$(dest_labels)")"
     rm -f "$work/.dudu-source"
   fi
   echo
@@ -118,18 +118,18 @@ cmd_restore() {
   todo=${todo# }
   restore_check_contents "$work"
   if [ -z "$todo" ]; then
-    warn "Nothing to restore"
+    warn "$(t "Nothing to restore")"
     rm -rf "$work"
     return 0
   fi
   echo
   if [ -z "$DUDU_DRY_RUN" ] && [ -z "$DUDU_YES" ] && [ ! -t 0 ]; then
-    err "No terminal to confirm in: run dudu restore -y to restore without asking"
+    err "$(t "No terminal to confirm in: run dudu restore -y to restore without asking")"
     rm -rf "$work"
     return 1
   fi
   if [ -z "$DUDU_DRY_RUN" ] && [ -z "$DUDU_YES" ]; then
-    confirm "Restore these $(echo "$todo" | wc -w | tr -d ' ') items on $(dudu_host)?" || { rm -rf "$work"; return 0; }
+    confirm "$(tn "Restore this %d item on %s?" "Restore these %d items on %s?" "$(echo "$todo" | wc -w | tr -d ' ')" "$(dudu_host)")" || { rm -rf "$work"; return 0; }
   fi
 
   local failed=""
@@ -137,20 +137,20 @@ cmd_restore() {
     title "── $c"
     if ! "${c}_restore" "$work/$c"; then
       failed="$failed $c"
-      err "$c did not finish"
+      err "$(t "%s did not finish" "$c")"
     fi
   done
 
   echo
   if [ -n "$DUDU_DRY_RUN" ]; then
-    dim "Dry run: nothing was changed."
+    dim "$(t "Dry run: nothing was changed.")"
   elif [ -n "$failed" ]; then
-    warn "Done, with problems in:$failed. Run dudu restore --only <name> to retry."
+    warn "$(t "Done, with problems in:%s. Run dudu restore --only <name> to retry." "$failed")"
   else
-    ok "Restore finished. Open a new terminal to load your shell config."
+    ok "$(t "Restore finished. Open a new terminal to load your shell config.")"
   fi
   if [ -f "$work/RESTORE.md" ] && grep -q '^## Not backed up' "$work/RESTORE.md"; then
-    warn "Remember the keys/credentials that were not backed up:"
+    warn "$(t "Remember the keys/credentials that were not backed up:")"
     sed -n '/^## Not backed up/,/^## /p' "$work/RESTORE.md" | grep '^- ' | sed 's/^- /    /' | LC_ALL=C tr -d '\000-\010\013-\037\177'
   fi
   rm -rf "$work"

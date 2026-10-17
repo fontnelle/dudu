@@ -26,14 +26,14 @@ go_tools() {
 
 go_backup() {
   go_tools | sort -u > "$1/tools.txt" || return 1
-  summary "$1" "$(count_lines "$1/tools.txt") tools"
+  summary "$1" "$(tn "%d tool" "%d tools" "$(count_lines "$1/tools.txt")")"
 }
 
 go_restore() {
   [ -s "$1/tools.txt" ] || return 0
-  has go || [ -n "${DUDU_DRY_RUN:-}" ] || { warn "go is not installed (it is usually in the Brewfile), skipping"; return 0; }
+  has go || [ -n "${DUDU_DRY_RUN:-}" ] || { warn "$(t "%s is not installed (it is usually in the Brewfile), skipping" go)"; return 0; }
   local t
   while IFS= read -r t; do
-    act go install "$t@latest" || warn "could not install $t"
+    act go install "$t@latest" || warn "$(t "could not install %s" "$t")"
   done < <(go_tools | missing_pkgs "$1/tools.txt")
 }

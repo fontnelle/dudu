@@ -1,19 +1,55 @@
 #compdef dudu
-# zsh completion for dudu
+# zsh completion for dudu. Descriptions follow dudu's language (language= in the config,
+# else the locale), read here without running dudu so completion stays instant.
+
+_dudu_lang() {
+  local lang=${DUDU_LANG:-} line conf=${XDG_CONFIG_HOME:-$HOME/.config}/dudu/config
+  if [[ -z $lang || $lang == auto ]] && [[ -r $conf ]]; then
+    while IFS= read -r line; do
+      [[ $line == [[:space:]]#language[[:space:]]#=* ]] && lang=${${line#*=}//[[:space:]\"\']/}
+    done < $conf
+  fi
+  [[ -z $lang || $lang == auto ]] && lang=${${LANGUAGE%%:*}:-${LC_ALL:-${LC_MESSAGES:-$LANG}}}
+  case $lang in
+    pt*) print pt ;;
+    es*) print es ;;
+    *) print en ;;
+  esac
+}
 
 _dudu() {
   local -a commands collectors
-  commands=(
-    'backup:Save installs & configs'
-    'restore:Reinstall on a new machine'
-    'status:What changed since last backup'
-    'outdated:Check updates for your tools'
-    'secrets:Keys found in your config files'
-    'schedule:Back up every day'
-    'config:Destination & what to include'
-    'update:Update dudu itself'
-    'completion:Print shell completion'
-  )
+  local -A d
+  case $(_dudu_lang) in
+    pt) d=(
+      backup 'Salva instalações e configurações' restore 'Reinstala tudo numa máquina nova'
+      status 'O que mudou desde o último backup' outdated 'Procura atualizações das suas ferramentas'
+      secrets 'Chaves achadas nos seus arquivos de configuração' schedule 'Faz backup todo dia'
+      config 'Destinos, idioma, criptografia, agendamento' update 'Atualiza o próprio dudu'
+      completion 'Mostra o autocompletar do shell'
+      dry 'Mostra o que faria, sem mudar nada' only 'Limita a alguns coletores'
+      from 'Backup de outra máquina' file 'Pasta de um backup' yes 'Não pergunta' ) ;;
+    es) d=(
+      backup 'Guarda instalaciones y configuraciones' restore 'Reinstala todo en una máquina nueva'
+      status 'Qué cambió desde el último respaldo' outdated 'Busca actualizaciones de tus herramientas'
+      secrets 'Claves encontradas en tus archivos de configuración' schedule 'Respalda todos los días'
+      config 'Destinos, idioma, cifrado, programación' update 'Actualiza el propio dudu'
+      completion 'Muestra el autocompletado del shell'
+      dry 'Muestra qué haría, sin cambiar nada' only 'Limita a algunos recolectores'
+      from 'Respaldo de otra máquina' file 'Carpeta de un respaldo' yes 'No preguntar' ) ;;
+    *) d=(
+      backup 'Save installs & configs' restore 'Reinstall on a new machine'
+      status 'What changed since last backup' outdated 'Check updates for your tools'
+      secrets 'Keys found in your config files' schedule 'Back up every day'
+      config 'Destinations, language, encryption, schedule' update 'Update dudu itself'
+      completion 'Print shell completion'
+      dry 'Show what would happen' only 'Limit to collectors'
+      from 'Backup of another machine' file 'Backup folder' yes 'Do not ask' ) ;;
+  esac
+  local c
+  for c in backup restore status outdated secrets schedule config update completion; do
+    commands+=("$c:$d[$c]")
+  done
   collectors=(brew syspkgs shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos)
 
   if (( CURRENT == 2 )); then
@@ -23,10 +59,10 @@ _dudu() {
 
   case "$words[2]" in
     backup|status|secrets)
-      _arguments '--dry-run[Show what would happen]' '--only[Limit to collectors]:collectors:_values -s , collector $collectors' ;;
+      _arguments "--dry-run[$d[dry]]" "--only[$d[only]]:collectors:_values -s , collector $collectors" ;;
     restore)
-      _arguments '--dry-run[Show what would happen]' '--only[Limit to collectors]:collectors:_values -s , collector $collectors' \
-        '--from[Backup of another machine]:host:' '--file[Backup folder]:folder:_files -/' '--yes[Do not ask]' ;;
+      _arguments "--dry-run[$d[dry]]" "--only[$d[only]]:collectors:_values -s , collector $collectors" \
+        "--from[$d[from]]:host:" "--file[$d[file]]:folder:_files -/" "--yes[$d[yes]]" ;;
     config)
       _values 'action' show set ;;
     schedule)

@@ -5,7 +5,7 @@ brew_detect() { has brew; }
 
 brew_backup() {
   brew bundle dump --file="$1/Brewfile" --force || return 1
-  summary "$1" "$(grep -c '^brew ' "$1/Brewfile") formulae, $(grep -c '^cask ' "$1/Brewfile") casks, $(grep -c '^mas ' "$1/Brewfile") App Store"
+  summary "$1" "$(tn "%d formula" "%d formulae" "$(grep -c '^brew ' "$1/Brewfile")"), $(tn "%d cask" "%d casks" "$(grep -c '^cask ' "$1/Brewfile")"), $(t "%d App Store" "$(grep -c '^mas ' "$1/Brewfile")")"
 }
 
 brew_load_shellenv() {
@@ -30,16 +30,16 @@ brew_safe_brewfile() { # <Brewfile>
     case "$line" in npm\ \"*|uv\ \"*|go\ \"*|cargo\ \"*) continue ;; esac
     if printf '%s\n' "$line" | LC_ALL=C grep -Eq '^[[:space:]]*(tap|brew|cask|mas|vscode|whalebrew)[[:space:]]+"[^"`$#\\]+"([[:space:]]*,[[:space:]]*([a-z_]+:[[:space:]]*)?("[^"`$#\\]*"|\[[^]`$#\\]*\]|:[a-z_]+|[0-9]+|true|false))*[[:space:]]*$'; then
       printf '%s\n' "$line"
-      case "$line" in *tap*'"'*','*'"'*) warn "Brewfile taps a custom source: $(safe_text "$line")" >&2 ;; esac
+      case "$line" in *tap*'"'*','*'"'*) warn "$(t "Brewfile taps a custom source: %s" "$(safe_text "$line")")" >&2 ;; esac
     else
-      warn "ignored unexpected Brewfile line: $(safe_text "$line")" >&2
+      warn "$(t "ignored unexpected Brewfile line: %s" "$(safe_text "$line")")" >&2
     fi
   done < "$1"
 }
 
 brew_restore() {
   if ! has brew && ! brew_load_shellenv; then
-    step "Installing Homebrew"
+    step "$(t "Installing %s" Homebrew)"
     act_sh 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' || return 1
     [ -n "${DUDU_DRY_RUN:-}" ] || brew_load_shellenv || return 1
   fi
@@ -51,7 +51,7 @@ brew_restore() {
     if ! has brew; then
       dim "  $(cat "$1/.summary" 2>/dev/null)"
     elif brew bundle check --no-upgrade --file="$brewfile" >/dev/null 2>&1; then
-      dim "  = everything in the Brewfile is installed"
+      dim "  = $(t "everything in the Brewfile is installed")"
     else
       brew bundle check --no-upgrade --file="$brewfile" --verbose 2>&1 | grep '^→' | sed 's/^/  /'
     fi

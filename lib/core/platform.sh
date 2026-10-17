@@ -68,8 +68,8 @@ human_date() { # <epoch>
   today=$(date +%Y-%m-%d)
   local hm
   if is_macos; then hm=$(/bin/date -r "$1" +%H:%M); else hm=$(date -d "@$1" +%H:%M); fi
-  if [ "$day" = "$today" ]; then printf 'today %s' "$hm"
-  elif [ "$day" = "$yesterday" ]; then printf 'yesterday %s' "$hm"
+  if [ "$day" = "$today" ]; then t "today %s" "$hm"
+  elif [ "$day" = "$yesterday" ]; then t "yesterday %s" "$hm"
   elif is_macos; then /bin/date -r "$1" '+%d/%m/%Y %H:%M'
   else date -d "@$1" '+%d/%m/%Y %H:%M'
   fi
@@ -78,11 +78,10 @@ human_date() { # <epoch>
 # "just now", "6 min ago", "3 h ago", "12 days ago".
 time_ago() { # <epoch>
   local d=$(( $(date +%s) - $1 ))
-  if [ $d -lt 60 ]; then printf 'just now'
-  elif [ $d -lt 3600 ]; then printf '%d min ago' $((d / 60))
-  elif [ $d -lt 86400 ]; then printf '%d h ago' $((d / 3600))
-  elif [ $d -lt 172800 ]; then printf '1 day ago'
-  else printf '%d days ago' $((d / 86400))
+  if [ $d -lt 60 ]; then t "just now"
+  elif [ $d -lt 3600 ]; then t "%d min ago" $((d / 60))
+  elif [ $d -lt 86400 ]; then t "%d h ago" $((d / 3600))
+  else tn "%d day ago" "%d days ago" $((d / 86400))
   fi
 }
 

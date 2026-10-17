@@ -43,17 +43,17 @@ macos_backup() {
     value=$(defaults read "$domain" "$key" 2>/dev/null) || continue
     printf '%s|%s|%s|%s\n' "$domain" "$key" "$type" "$value" >> "$1/defaults.txt"
   done <<< "$MACOS_DEFAULTS"
-  summary "$1" "$(count_lines "$1/defaults.txt") preferences"
+  summary "$1" "$(tn "%d preference" "%d preferences" "$(count_lines "$1/defaults.txt")")"
 }
 
 macos_restore() {
-  if ! is_macos; then dim "  macOS only, skipped"; return 0; fi
+  if ! is_macos; then dim "  $(t "macOS only, skipped")"; return 0; fi
   local domain key type value flag current changed=""
   while IFS='|' read -r domain key type value; do
     # Only the preferences dudu knows, with a plain type: a backup cannot write anything else.
     if ! printf '%s\n' "$MACOS_DEFAULTS" | grep -qxF "$domain $key" ||
        ! case "$type" in boolean|integer|float|string) true ;; *) false ;; esac; then
-      warn "ignored unexpected preference in the backup: $(safe_text "$domain $key")"
+      warn "$(t "ignored unexpected preference in the backup: %s" "$(safe_text "$domain $key")")"
       continue
     fi
     current=$(defaults read "$domain" "$key" 2>/dev/null)
@@ -70,7 +70,7 @@ macos_restore() {
   if [ -n "$changed" ]; then
     act killall Dock Finder SystemUIServer 2>/dev/null
   else
-    dim "  = all preferences already set"
+    dim "  = $(t "all preferences already set")"
   fi
   return 0
 }

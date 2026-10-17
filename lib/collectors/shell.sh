@@ -37,16 +37,16 @@ shell_backup() {
     for f in "$custom"/*.zsh; do
       [ -f "$f" ] && save_file "$f" "$1/home" && n=$((n + 1))
     done
-    extra="$extra + $(count_lines "$1/omz-custom.txt") custom plugins/themes"
+    extra="$extra + $(tn "%d custom plugin/theme" "%d custom plugins/themes" "$(count_lines "$1/omz-custom.txt")")"
   fi
-  summary "$1" "$n dotfiles$extra"
+  summary "$1" "$(tn "%d dotfile" "%d dotfiles" "$n")$extra"
 }
 
 shell_restore() {
   local omz custom rel url
   omz=$(shell_omz_dir)
   if [ -f "$1/ohmyzsh" ] && [ ! -d "$omz" ]; then
-    step "Installing Oh My Zsh"
+    step "$(t "Installing %s" "Oh My Zsh")"
     act_sh 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
   fi
   if [ -s "$1/omz-custom.txt" ]; then
@@ -56,7 +56,7 @@ shell_restore() {
       # Only plugins/<name> or themes/<name>, cloned from a plain https or ssh git URL.
       if ! printf '%s %s\n' "$rel" "$url" | grep -Eq '^(plugins|themes)/[A-Za-z0-9._-]+ (https://|git@)[A-Za-z0-9._/:@~-]+$' ||
          [ "${rel#*..}" != "$rel" ]; then
-        warn "ignored suspicious plugin entry in the backup: $(safe_text "$rel $url")"
+        warn "$(t "ignored suspicious plugin entry in the backup: %s" "$(safe_text "$rel $url")")"
         continue
       fi
       if [ -d "$custom/$rel" ]; then
@@ -75,6 +75,6 @@ ${custom#"$HOME"/}/*.zsh"
   local want
   want=$(cat "$1/login_shell" 2>/dev/null)
   if [ -n "$want" ] && [ "$want" != "$(basename "${SHELL:-}")" ] && has "$want"; then
-    warn "Your login shell was $want. Change it with: chsh -s $(command -v "$want")"
+    warn "$(t "Your login shell was %s. Change it with: %s" "$want" "chsh -s $(command -v "$want")")"
   fi
 }
