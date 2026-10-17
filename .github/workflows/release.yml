@@ -19,10 +19,13 @@ jobs:
       TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check tag matches VERSION
+        with:
+          fetch-depth: 0 # the tags, for the "Full Changelog" link
+      - name: Check tag matches VERSION and CHANGELOG
         run: |
           v=$(sed -n 's/^VERSION="\(.*\)"/\1/p' dudu)
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != VERSION $v"; exit 1; }
+          packaging/release-notes.sh --title "$v"
       - name: Build
         run: |
           v=${GITHUB_REF_NAME#v}
@@ -32,7 +35,11 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          packaging/release-notes.sh "$v" > dist/notes.md
+          gh release create "$GITHUB_REF_NAME" dist/dudu-$v.tar.gz dist/SHA256SUMS \
+            --title "$(packaging/release-notes.sh --title "$v")" --notes-file dist/notes.md
       - name: Update the Homebrew tap
         if: env.TAP_TOKEN != ''
         run: |

@@ -1,5 +1,5 @@
 VERSION := $(shell sed -n 's/^VERSION="\(.*\)"/\1/p' dudu)
-SOURCES := dudu install.sh $(wildcard lib/*/*.sh) $(wildcard bin/*.sh)
+SOURCES := dudu install.sh packaging/release-notes.sh $(wildcard lib/*/*.sh) $(wildcard bin/*.sh)
 
 .PHONY: lint test check dist install clean
 
@@ -14,6 +14,8 @@ lint:
 	@if command -v zsh >/dev/null; then zsh -n completions/dudu.zsh completions/_dudu; fi
 	@# Every message has a translation in each catalog, with the same %s/%d.
 	bash tests/i18n_check.sh
+	@# The version in dudu has its release notes in CHANGELOG.md.
+	@packaging/release-notes.sh --title $(VERSION) >/dev/null
 	@# bash 3.2 reads "$VAR" followed by a UTF-8 byte as part of the name: write "${VAR}".
 	@! perl -ne 'print "$$ARGV:$$.: $$_" if /\$$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/; close ARGV if eof' $(SOURCES) | grep .
 
