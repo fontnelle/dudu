@@ -29,10 +29,12 @@ schedule_time() {
 
 xml_escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 
+# The job runs the stable path (opt/dudu with Homebrew), not this version's Cellar folder,
+# which brew upgrade removes.
 schedule_on_macos() { # <HH:MM>
   local f bin path
   f=$(schedule_plist)
-  bin=$(printf '%s' "$DUDU_ROOT/dudu" | xml_escape)
+  bin=$(printf '%s' "$(stable_root)/dudu" | xml_escape)
   path=$(printf '%s' "$PATH" | xml_escape)
   mkdir -p "$(dirname "$f")"
   cat > "$f.tmp" <<EOF
@@ -71,7 +73,7 @@ Description=dudu backup
 [Service]
 Type=oneshot
 Environment="PATH=$PATH"
-ExecStart="$DUDU_ROOT/dudu" backup --scheduled
+ExecStart="$(stable_root)/dudu" backup --scheduled
 EOF
   cat > "$d/dudu.timer" <<EOF
 [Unit]

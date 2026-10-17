@@ -34,6 +34,7 @@ setup() {
 }
 
 @test "Linux: a systemd user timer" {
+  # shellcheck disable=SC2317,SC2329
   is_macos() { return 1; }
   cmd_schedule on 23:30 < /dev/null
   grep -q '^OnCalendar=\*-\*-\* 23:30:00$' "$(schedule_unit_dir)/dudu.timer"
@@ -42,6 +43,15 @@ setup() {
   grep -q "systemctl --user enable --now dudu.timer" "$BATS_TEST_TMPDIR/calls"
   cmd_schedule off
   [ ! -f "$(schedule_unit_dir)/dudu.timer" ]
+}
+
+@test "a Homebrew install schedules the path that survives brew upgrade" {
+  # shellcheck disable=SC2317,SC2329
+  is_macos() { return 1; }
+  DUDU_ROOT=/opt/homebrew/Cellar/dudu/0.2.0/libexec
+  cmd_schedule on 08:00 < /dev/null
+  grep -qF 'ExecStart="/opt/homebrew/opt/dudu/libexec/dudu" backup --scheduled' "$(schedule_unit_dir)/dudu.service"
+  run ! grep -q "^ExecStart=.*Cellar" "$(schedule_unit_dir)/dudu.service"
 }
 
 @test "encrypted backups need a stored password before scheduling" {
