@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="790" height="595" viewBox="0 0 790 595">
+<rect width="790" height="595" rx="12" fill="#1e1e2e"/>
+<circle cx="22" cy="20" r="6" fill="#f38ba8"/><circle cx="42" cy="20" r="6" fill="#f9e2af"/><circle cx="62" cy="20" r="6" fill="#a6e3a1"/>
+<g font-family="SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="14" xml:space="preserve">
+<text x="22.0" y="52" fill="#cdd6f4" font-weight="bold">Backing up MacBook-Pro</text>
+<text x="22.0" y="73" fill="#7f849c">To 3 destinations: Local folder, iCloud Drive, Apple Notes</text>
+<text x="22.0" y="115" fill="#7f849c">1/2</text>
+<text x="56.4" y="115" fill="#cdd6f4" font-weight="bold">Collecting</text>
+<text x="159.6" y="115" fill="#7f849c">what&#x27;s installed on this machine</text>
+<text x="39.2" y="136" fill="#a6e3a1">✓</text>
+<text x="56.4" y="136" fill="#cdd6f4">brew</text>
+<text x="185.4" y="136" fill="#7f849c">36 formulae, 3 casks, 0 App Store</text>
+<text x="39.2" y="157" fill="#a6e3a1">✓</text>
+<text x="56.4" y="157" fill="#cdd6f4">shell</text>
+<text x="185.4" y="157" fill="#7f849c">11 dotfiles, Oh My Zsh + 1 custom plugins/themes</text>
+<text x="39.2" y="178" fill="#a6e3a1">✓</text>
+<text x="56.4" y="178" fill="#cdd6f4">git</text>
+<text x="185.4" y="178" fill="#7f849c">4 files</text>
+<text x="39.2" y="199" fill="#a6e3a1">✓</text>
+<text x="56.4" y="199" fill="#cdd6f4">terminal</text>
+<text x="185.4" y="199" fill="#7f849c">1 configs, profiles: Terminal, 18 Nerd Font files</text>
+<text x="39.2" y="220" fill="#a6e3a1">✓</text>
+<text x="56.4" y="220" fill="#cdd6f4">node</text>
+<text x="185.4" y="220" fill="#7f849c">4 versions via nvm, default 20</text>
+<text x="39.2" y="241" fill="#a6e3a1">✓</text>
+<text x="56.4" y="241" fill="#cdd6f4">npm</text>
+<text x="185.4" y="241" fill="#7f849c">2 global packages</text>
+<text x="39.2" y="262" fill="#a6e3a1">✓</text>
+<text x="56.4" y="262" fill="#cdd6f4">python</text>
+<text x="185.4" y="262" fill="#7f849c">1 pyenv versions, 1 uv tools, 130 pip --user</text>
+<text x="39.2" y="283" fill="#a6e3a1">✓</text>
+<text x="56.4" y="283" fill="#cdd6f4">vscode</text>
+<text x="185.4" y="283" fill="#7f849c">31 extensions + settings</text>
+<text x="39.2" y="304" fill="#a6e3a1">✓</text>
+<text x="56.4" y="304" fill="#cdd6f4">macos</text>
+<text x="185.4" y="304" fill="#7f849c">8 preferences</text>
+<text x="39.2" y="325" fill="#7f849c">└ 9 tools found · 5s</text>
+<text x="39.2" y="346" fill="#a6e3a1">✓</text>
+<text x="56.4" y="346" fill="#cdd6f4">encrypted</text>
+<text x="185.4" y="346" fill="#7f849c">AES-256 with your backup password</text>
+<text x="22.0" y="388" fill="#7f849c">2/2</text>
+<text x="56.4" y="388" fill="#cdd6f4" font-weight="bold">Saving</text>
+<text x="125.2" y="388" fill="#7f849c">to 3 destinations</text>
+<text x="39.2" y="409" fill="#a6e3a1">✓</text>
+<text x="56.4" y="409" fill="#cdd6f4">Local folder</text>
+<text x="185.4" y="409" fill="#7f849c">~/dudu-backups/MacBook-Pro/2026-10-17_175241Z-b55d</text>
+<text x="632.6" y="409" fill="#7f849c">1s</text>
+<text x="39.2" y="430" fill="#a6e3a1">✓</text>
+<text x="56.4" y="430" fill="#cdd6f4">iCloud Drive</text>
+<text x="185.4" y="430" fill="#7f849c">iCloud Drive › dudu › MacBook-Pro › 2026-10-17_175241Z-b55d</text>
+<text x="710.0" y="430" fill="#7f849c">&lt;1s</text>
+<text x="39.2" y="451" fill="#a6e3a1">✓</text>
+<text x="56.4" y="451" fill="#cdd6f4">Apple Notes</text>
+<text x="185.4" y="451" fill="#7f849c">Notes › dudu › dudu backup - MacBook-Pro</text>
+<text x="546.6" y="451" fill="#7f849c">&lt;1s</text>
+<text x="39.2" y="472" fill="#7f849c">└ 3 of 3 saved · 1s</text>
+<text x="22.0" y="514" fill="#a6e3a1" font-weight="bold">✓ Backup complete</text>
+<text x="194.0" y="514" fill="#7f849c">9 tools · 68K · 3/3 destinations · 6s</text>
+<text x="39.2" y="535" fill="#a6e3a1">●</text>
+<text x="56.4" y="535" fill="#cdd6f4">7 key files kept local</text>
+<text x="271.4" y="535" fill="#7f849c">GitHub CLI, Docker, Kubernetes, .netrc, Shell keys, SSH</text>
+<text x="56.4" y="556" fill="#7f849c">Copy them to the new machine yourself. Full list in RESTORE.md.</text>
+</g></svg>
