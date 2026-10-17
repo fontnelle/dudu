@@ -19,7 +19,7 @@ collector_looks_empty() { # <new dir> <last good dir>
 
 # Puts the last good copy of <collector> in the bundle. Returns 1 when there is none.
 collector_carry() { # <bundle> <collector>
-  [ -n "${DUDU_CARRY:-}" ] && [ -d "$(carry_dir)/$2" ] || return 1
+  { [ -n "${DUDU_CARRY:-}" ] && [ -d "$(carry_dir)/$2" ]; } || return 1
   rm -rf "${1:?}/$2"
   cp -R "$(carry_dir)/$2" "$1/$2" || return 1
   CARRIED="$CARRIED $2"
@@ -270,7 +270,7 @@ cmd_backup() {
   rm -rf "$work"
   # 0 = all saved, 1 = nothing saved, 2 = saved with problems.
   [ "$saved" -gt 0 ] || return 1
-  [ "$saved" -eq "$n_dest" ] && [ -z "$TROUBLE" ] || return 2
+  { [ "$saved" -eq "$n_dest" ] && [ -z "$TROUBLE" ]; } || return 2
   return 0
 }
 

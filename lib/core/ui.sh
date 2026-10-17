@@ -44,7 +44,8 @@ pid_tree() { # <pid>
 kill_tree() { # <pid>
   local pids p i=0 alive
   pids=$(pid_tree "$1")
-  for p in $pids; do kill "$p" 2>/dev/null; done
+  # A process may end on its own meanwhile: that is fine.
+  for p in $pids; do kill "$p" 2>/dev/null || true; done
   while [ $i -lt 30 ]; do
     alive=""
     for p in $pids; do kill -0 "$p" 2>/dev/null && alive=1; done
@@ -52,7 +53,7 @@ kill_tree() { # <pid>
     sleep 0.1
     i=$((i + 1))
   done
-  for p in $pids; do kill -9 "$p" 2>/dev/null; done
+  for p in $pids; do kill -9 "$p" 2>/dev/null || true; done
   return 0
 }
 

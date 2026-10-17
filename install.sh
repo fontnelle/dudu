@@ -77,7 +77,7 @@ else
   else
     actual=$(sha256sum "$tmp/dudu.tar.gz" | awk '{ print $1 }')
   fi
-  [ -n "$expected" ] && [ "$expected" = "$actual" ] || die "Checksum mismatch, aborting"
+  { [ -n "$expected" ] && [ "$expected" = "$actual" ]; } || die "Checksum mismatch, aborting"
   ok "Checksum verified"
 fi
 

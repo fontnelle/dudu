@@ -93,6 +93,6 @@ node_upgrade() {
   local current latest
   current=$(nvm version default)
   latest=$(nvm version-remote --lts)
-  [ -n "$latest" ] && [ "$latest" != N/A ] || return 1
+  { [ -n "$latest" ] && [ "$latest" != N/A ]; } || return 1
   nvm install "$latest" --reinstall-packages-from="$current" && nvm alias default "$latest"
 }

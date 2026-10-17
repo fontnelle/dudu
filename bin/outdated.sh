@@ -133,7 +133,7 @@ outdated_run_upgrades() {
 
   title "Updating $PROG_TOTAL package$([ "$PROG_TOTAL" -gt 1 ] && echo s)"
   for ((i = 0; i < n; i++)); do
-    [ "${CL_KIND[$i]}" = i ] && [ "${CL_ON[$i]}" = 1 ] || continue
+    { [ "${CL_KIND[$i]}" = i ] && [ "${CL_ON[$i]}" = 1 ]; } || continue
     c=${CL_COLLECTOR[$i]}
     if [ "$c" != "$last" ]; then
       printf '\n%s%s%s\n' "$CYAN" "$c" "$NC"
