@@ -10,8 +10,9 @@ class Dudu < Formula
   def install
     libexec.install "dudu", "lib", "bin", "completions"
     bin.install_symlink libexec/"dudu"
-    zsh_completion.install "completions/_dudu"
-    bash_completion.install "completions/dudu.bash" => "dudu"
+    # Links, so dudu keeps its own completions/ (dudu completion reads them from there).
+    zsh_completion.install_symlink libexec/"completions/_dudu"
+    bash_completion.install_symlink libexec/"completions/dudu.bash" => "dudu"
   end
 
   def caveats
