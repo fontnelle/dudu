@@ -77,6 +77,7 @@ BREW
   [[ "$output" != *'#{'* ]] || false
   [[ "$output" == *'brew "postgresql@16", restart_service: :changed'* ]] || false
   [[ "$output" == *'mas "Xcode", id: 497799835'* ]] || false
+  # shellcheck disable=SC2154 # $stderr is set by run --separate-stderr
   [[ "$stderr" == *"taps a custom source"* ]] || false
 }
 
