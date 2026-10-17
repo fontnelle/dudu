@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches VERSION
+        run: |
+          v=$(sed -n 's/^VERSION="\(.*\)"/\1/p' dudu)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != VERSION $v"; exit 1; }
+      - name: Build
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          mkdir -p dist
+          git archive --format=tar.gz --prefix=dudu-$v/ -o dist/dudu-$v.tar.gz HEAD
+          cd dist && sha256sum dudu-$v.tar.gz > SHA256SUMS
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes

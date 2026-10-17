@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck bats-core
+      - name: Install tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y shellcheck bats
+      - run: make lint
+      - run: make test
+      - name: Smoke test
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: |
+          ./dudu --version
+          ./dudu backup --only shell,git
+          ./dudu restore --dry-run --only shell,git
+          ./dudu status --only shell,git
+
+  # macOS ships bash 3.2 as /bin/bash: dudu must keep working there.
+  bash32:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install bats-core
+      - name: Tests under /bin/bash 3.2
+        run: |
+          mkdir -p "$RUNNER_TEMP/b32"
+          ln -sf /bin/bash "$RUNNER_TEMP/b32/bash"
+          export PATH="$RUNNER_TEMP/b32:$PATH"
+          bash --version | head -1
+          bats tests/
+
+  # syspkgs reads dnf and pacman too.
+  distros:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: fedora:latest
+            setup: dnf install -y bats make git findutils procps-ng diffutils which openssl perl tar gzip
+          - image: archlinux:latest
+            setup: pacman -Syu --noconfirm bats make git findutils procps-ng diffutils which openssl perl tar gzip
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    steps:
+      - run: ${{ matrix.setup }}
+      - uses: actions/checkout@v4
+      - run: make test
+      - name: Smoke test
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: |
+          ./dudu backup --only syspkgs,shell
+          ./dudu status --only syspkgs,shell

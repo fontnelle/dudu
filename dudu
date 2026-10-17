@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# dudu: backup and restore of your dev environment (installs, runtimes, terminal config).
+# https://github.com/fontnelle/dudu
+
+VERSION="0.1.0"
+
+set -o pipefail
+
+# Follows symlinks (e.g. /usr/local/bin/dudu -> /usr/local/lib/dudu/dudu) without readlink -f.
+resolve_root() {
+  local src="${BASH_SOURCE[0]}" dir
+  while [ -L "$src" ]; do
+    dir=$(cd -P "$(dirname "$src")" && pwd)
+    src=$(readlink "$src")
+    case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+  done
+  cd -P "$(dirname "$src")" && pwd
+}
+
+DUDU_ROOT=$(resolve_root)
+
+load_libs() {
+  local f
+  for f in "$DUDU_ROOT"/lib/core/*.sh "$DUDU_ROOT"/lib/collectors/*.sh \
+           "$DUDU_ROOT"/lib/destinations/*.sh "$DUDU_ROOT"/bin/*.sh; do
+    # shellcheck source=/dev/null
+    . "$f"
+  done
+}
+
+load_libs
+
+usage() {
+  cat <<EOF
+${BOLD}dudu${NC} $VERSION: back up and restore your dev setup.
+
+${BOLD}Usage${NC}
+  dudu                     Interactive menu
+  dudu backup              Save installs & configs to your destination
+  dudu restore             Reinstall everything on this machine
+  dudu status              What changed since the last backup
+  dudu outdated [--all]    Check updates for your tools (read-only)
+  dudu secrets             Keys found in your config files
+  dudu schedule on [HH:MM] Back up every day (off | status)
+  dudu config              Choose destination & what to include
+  dudu update              Update dudu itself
+  dudu completion zsh|bash|highlight
+                           Print shell completion or highlighting
+
+${BOLD}Options${NC}
+  --dry-run                Show what would happen, change nothing
+  --only brew,node         Limit to some collectors
+  --from <host>            (restore) Use the backup of another machine
+  --file <dir>             (restore) Use a backup folder directly
+  -y, --yes                (restore) Do not ask for confirmation
+  --debug                  Trace every step into the log
+  -v, --version            Print version
+
+Collectors: $(echo "$DUDU_COLLECTORS" | tr ' ' ',')
+Docs: $DUDU_HOMEPAGE
+EOF
+}
+
+main_header() {
+  show_banner
+  update_notice
+  echo
+}
+
+main_menu() {
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    usage
+    return 0
+  fi
+  check_for_updates_bg
+  while true; do
+    MENU_FOOTER="↑↓  |  Enter  |  V Version  |  Q Quit"
+    MENU_HOTKEYS="v"
+    menu_select main_header \
+      "Backup|Save installs & configs" \
+      "Restore|Reinstall on a new machine" \
+      "Status|What changed since last backup" \
+      "Outdated|Check updates for your tools" \
+      "Secrets|Keys found in your config files" \
+      "Settings|Destination & what to include" || break
+    # A menu can stay open for hours: pick up code changed since (edits, dudu update).
+    load_libs
+    clear_screen
+    case "$MENU_CHOICE" in
+      0) cmd_backup ;;
+      1) cmd_restore ;;
+      2) cmd_status ;;
+      3) cmd_outdated ;;
+      4) cmd_secrets ;;
+      5) cmd_config ;;
+      -1) [ "$MENU_KEY" = v ] && printf 'dudu %s\n' "$VERSION" ;;
+    esac
+    printf '\n%sPress any key to return to the menu…%s' "$GRAY" "$NC"
+    read -rsn1 _
+  done
+  clear_screen
+}
+
+debug_on() {
+  printf '\n=== debug %s, bash %s ===\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$BASH_VERSION" >> "$DUDU_LOG"
+  if [ "${BASH_VERSINFO[0]}" -ge 5 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -ge 1 ]; }; then
+    exec 9>>"$DUDU_LOG"
+    BASH_XTRACEFD=9
+    PS4='+ ${BASH_SOURCE##*/}:${LINENO}: '
+    set -x
+  else
+    # bash 3.2 cannot send the trace elsewhere than stderr.
+    printf 'dudu: --debug needs bash 4.1+ (brew install bash); logging steps only\n' >&2
+  fi
+}
+
+main() {
+  # Everything dudu writes (backups, logs, temp files) is readable by this user only.
+  umask 077
+  mkdir -p "$DUDU_CACHE_DIR"
+  [ -f "$DUDU_LOG" ] && chmod 600 "$DUDU_LOG" 2>/dev/null
+  log_rotate
+  trap 'dudu_cleanup' EXIT
+  trap 'dudu_cleanup; echo; exit 130' INT
+  trap 'dudu_cleanup; exit 143' TERM
+
+  # --debug (or DUDU_DEBUG=1) traces every command into the log.
+  local a args=()
+  for a in "$@"; do
+    if [ "$a" = --debug ]; then DUDU_DEBUG=1; else args+=("$a"); fi
+  done
+  set -- ${args[@]+"${args[@]}"}
+  [ -n "${DUDU_DEBUG:-}" ] && debug_on
+
+  local cmd="${1:-}"
+  [ $# -gt 0 ] && shift
+  case "$cmd" in
+    "") main_menu ;;
+    backup)
+      local rc=0
+      cmd_backup "$@" || rc=$?
+      if [ -n "${DUDU_SCHEDULED:-}" ] && [ $rc -ne 0 ]; then
+        if [ $rc -eq 2 ]; then schedule_notify "Backup saved with problems, see dudu status"
+        else schedule_notify "Backup failed, see $(tilde "$DUDU_LOG")"; fi
+      fi
+      return $rc
+      ;;
+    restore) cmd_restore "$@" ;;
+    status) cmd_status "$@" ;;
+    outdated) cmd_outdated "$@" ;;
+    secrets) cmd_secrets "$@" ;;
+    schedule) cmd_schedule "$@" ;;
+    config|settings) cmd_config "$@" ;;
+    update) cmd_update "$@" ;;
+    completion) cmd_completion "$@" ;;
+    -v|--version|version) printf 'dudu %s\n' "$VERSION" ;;
+    -h|--help|help) usage ;;
+    *) err "Unknown command: $cmd"; echo; usage; exit 1 ;;
+  esac
+}
+
+main "$@"

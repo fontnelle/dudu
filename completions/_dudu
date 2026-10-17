@@ -1,0 +1,39 @@
+#compdef dudu
+# zsh completion for dudu
+
+_dudu() {
+  local -a commands collectors
+  commands=(
+    'backup:Save installs & configs'
+    'restore:Reinstall on a new machine'
+    'status:What changed since last backup'
+    'outdated:Check updates for your tools'
+    'secrets:Keys found in your config files'
+    'schedule:Back up every day'
+    'config:Destination & what to include'
+    'update:Update dudu itself'
+    'completion:Print shell completion'
+  )
+  collectors=(brew syspkgs shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos)
+
+  if (( CURRENT == 2 )); then
+    _describe 'command' commands
+    return
+  fi
+
+  case "$words[2]" in
+    backup|status|secrets)
+      _arguments '--dry-run[Show what would happen]' '--only[Limit to collectors]:collectors:_values -s , collector $collectors' ;;
+    restore)
+      _arguments '--dry-run[Show what would happen]' '--only[Limit to collectors]:collectors:_values -s , collector $collectors' \
+        '--from[Backup of another machine]:host:' '--file[Backup folder]:folder:_files -/' '--yes[Do not ask]' ;;
+    config)
+      _values 'action' show set ;;
+    schedule)
+      _values 'action' on off status ;;
+    completion)
+      _values 'shell' zsh bash highlight ;;
+  esac
+}
+
+_dudu "$@"

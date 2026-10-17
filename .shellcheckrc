@@ -1,0 +1,10 @@
+# Files are sourced together by ./dudu, so globals look unused per file.
+disable=SC2034
+# "~/x" strings are labels for humans, not paths.
+disable=SC2088
+# Installer one-liners are meant to be expanded by the inner shell.
+disable=SC2016
+disable=SC1091
+disable=SC2010
+disable=SC2153
+shell=bash
