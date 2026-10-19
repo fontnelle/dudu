@@ -190,4 +190,4 @@ Code must run on bash 3.2 (the macOS default): no associative arrays, no `mapfil
 
 ## License
 
-MIT. Inspired by [Mole](https://github.com/tw93/mole).
+MIT.

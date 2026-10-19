@@ -190,4 +190,4 @@ El código debe correr en bash 3.2 (el de macOS): sin arrays asociativos, sin `m
 
 ## Licencia
 
-MIT. Inspirado en [Mole](https://github.com/tw93/mole).
+MIT.
