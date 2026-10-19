@@ -2,7 +2,7 @@
 # dudu: backup and restore of your dev environment (installs, runtimes, terminal config).
 # https://github.com/fontnelle/dudu
 
-VERSION="0.2.2"
+VERSION="0.3.0"
 
 set -o pipefail
 
