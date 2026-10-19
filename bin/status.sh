@@ -3,8 +3,38 @@
 
 # Files compared as sets of lines (package lists); anything else is just "changed".
 is_list_file() {
-  case "$1" in *.txt|*/Brewfile) return 0 ;; esac
+  case "$1" in *.txt|Brewfile|*/Brewfile) return 0 ;; esac
   return 1
+}
+
+# One-line files holding a setting ("nvm", "20"): shown with their value.
+is_value_file() {
+  case "$1" in manager|default|login_shell|pyenv-global|rbenv-global) return 0 ;; esac
+  return 1
+}
+
+value_name() {
+  case "$1" in
+    manager) t "version manager" ;;
+    login_shell) t "login shell" ;;
+    *) t "default version" ;;
+  esac
+}
+
+# A list entry as people know it: 'brew "git"' -> git, 'cask "iterm2"' -> iterm2 (cask),
+# "v20.19.6 vercel" (npm globals per Node version) -> vercel (node v20.19.6).
+# Blank lines and comments are left out, and so are the Brewfile lines brew_restore does
+# not install (npm, go, cargo...: their own collectors cover them).
+pretty_list() { # <relative path>  (lines on stdin)
+  case "$1" in
+    Brewfile|*/Brewfile)
+      awk '/^(tap|brew|cask|mas|vscode|whalebrew) "/ { k = $1; split($0, q, "\""); n = q[2]
+             if (k == "brew") print n; else if (k == "mas") print n " (App Store)"; else print n " (" k ")" }' ;;
+    *globals.txt)
+      awk 'NF == 2 && $1 ~ /^v[0-9]/ { print $2 " (node " $1 ")"; next }
+           NF == 2 && $1 == "default" { print $2; next } NF { print }' ;;
+    *) awk 'NF' ;;
+  esac
 }
 
 # Two files hold the same settings. Terminal plists are compared on the keys people set,
@@ -27,40 +57,66 @@ pretty_file() {
   esac
 }
 
-# Prints one line per difference of a collector ("+ name", "- name", "~ file").
+# Prints one line per difference of a collector: a sign (+ added, - removed, ~ changed),
+# what kind of thing it is, then its name:
+#   +L git              a package (an entry of a list)
+#   +D com.apple.dock   a macOS preference
+#   ~F ~/.zshrc         a file
+#   ~V version manager: system → nvm   a setting, with its value
 status_changes() { # <old dir> <new dir>
-  local old=$1 new=$2 rel f
+  local old=$1 new=$2 rel f k
   while IFS= read -r rel; do
     [ "$rel" = .summary ] && continue
+    if is_value_file "$rel"; then
+      status_value_change "$rel" "$old/$rel" "$new/$rel"
+      continue
+    fi
+    k=L
+    case "$rel" in *defaults.txt) k=D ;; esac
     if [ ! -f "$old/$rel" ]; then
-      is_list_file "$rel" && sed 's/^/+ /' "$new/$rel" || printf '+ %s\n' "$(pretty_file "$rel")"
+      is_list_file "$rel" && pretty_list "$rel" < "$new/$rel" | sed "s/^/+$k /" || printf '+F %s\n' "$(pretty_file "$rel")"
       continue
     fi
     if [ ! -f "$new/$rel" ]; then
-      is_list_file "$rel" && sed 's/^/- /' "$old/$rel" || printf -- '- %s\n' "$(pretty_file "$rel")"
+      is_list_file "$rel" && pretty_list "$rel" < "$old/$rel" | sed "s/^/-$k /" || printf -- '-F %s\n' "$(pretty_file "$rel")"
       continue
     fi
     same_content "$old/$rel" "$new/$rel" && continue
     if is_list_file "$rel"; then
       f=$(mktemp)
       sort -u "$old/$rel" > "$f"
-      sort -u "$new/$rel" | comm -13 "$f" - | sed 's/^/+ /'
-      sort -u "$new/$rel" | comm -23 "$f" - | sed 's/^/- /'
+      sort -u "$new/$rel" | comm -13 "$f" - | pretty_list "$rel" | sed "s/^/+$k /"
+      sort -u "$new/$rel" | comm -23 "$f" - | pretty_list "$rel" | sed "s/^/-$k /"
       rm -f "$f"
     else
-      printf '~ %s\n' "$(t "%s changed" "$(pretty_file "$rel")")"
+      printf '~F %s\n' "$(pretty_file "$rel")"
     fi
   done < <( { (cd "$old" 2>/dev/null && find . -type f); (cd "$new" 2>/dev/null && find . -type f); } |
             sed 's|^\./||' | sort -u)
 }
 
-# Colors a change line by its first character.
-print_change() {
+# "~V version manager: system → nvm", "+V default version: 20".
+status_value_change() { # <relative path> <old file> <new file>
+  local before now
+  before=$(head -1 "$2" 2>/dev/null | tr -d '\r')
+  now=$(head -1 "$3" 2>/dev/null | tr -d '\r')
+  [ "$before" = "$now" ] && return 0
+  if [ -z "$before" ]; then printf '+V %s: %s\n' "$(value_name "$1")" "$now"
+  elif [ -z "$now" ]; then printf -- '-V %s: %s\n' "$(value_name "$1")" "$before"
+  else printf '~V %s: %s → %s\n' "$(value_name "$1")" "$before" "$now"
+  fi
+}
+
+# Colors a change line (from status_changes) by its sign.
+print_change() { # <line> [indent]
+  local pad=${2:-13} text
   set -- "$(safe_text "$1")"
+  text=${1#?? }
   case "$1" in
-    "+ "*) printf '             %s+%s %s\n' "$GREEN" "$NC" "${1#+ }" ;;
-    "- "*) printf '             %s-%s %s\n' "$RED" "$NC" "${1#- }" ;;
-    *) printf '             %s~%s %s\n' "$YELLOW" "$NC" "${1#\~ }" ;;
+    +*) printf '%*s%s+%s %s\n' "$pad" '' "$GREEN" "$NC" "$text" ;;
+    -*) printf '%*s%s-%s %s\n' "$pad" '' "$RED" "$NC" "$text" ;;
+    "~F "*) printf '%*s%s~%s %s\n' "$pad" '' "$YELLOW" "$NC" "$(t "%s changed" "$text")" ;;
+    *) printf '%*s%s~%s %s\n' "$pad" '' "$YELLOW" "$NC" "$text" ;;
   esac
 }
 

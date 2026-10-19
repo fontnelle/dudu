@@ -3,6 +3,20 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
+## Unreleased
+
+### Changed
+
+- **Restore looks like backup, in three steps.** *Source* lists every destination with the date of its backup and marks the one being restored. *Comparing* checks each tool against this machine. *Restoring* reinstalls only what you picked.
+- **Only what differs.** Tools that already match the backup are left alone. If nothing differs, restore says so and stops. `--only` still restores what you name.
+- **What will be done, before it is done.** Each difference becomes an action: "install v20.19.6", "change version manager: system → nvm", "replace ~/.zshrc". Press Enter to restore all of it, or E to pick tools from a checklist. With `-y`, it restores the tools that differ.
+- **A line per tool at the end**, restored or not, after the installers' output.
+- **`dudu status` names things as you know them:** `iterm2 (cask)` instead of "Brewfile changed", and "version manager: nvm → system".
+
+### Fixed
+
+- **A long spinner line no longer floods the screen.** On a narrow terminal, "Fetching the newest backup…" wrapped and was redrawn over and over. Spinner labels are now cut to the terminal width.
+
 ## v0.2.2 · dudu update with Homebrew
 
 ### Fixed

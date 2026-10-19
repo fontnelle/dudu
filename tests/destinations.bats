@@ -47,7 +47,7 @@ configure() { # <destinations>
   echo changed > "$HOME/.gitconfig"
   run dudu restore --only git --yes
   [ "$status" -eq 0 ]
-  [[ "$output" == *"From Google Drive"* ]] || false
+  [[ "$output" == *"Google Drive"*"restoring this one"* ]] || false
   grep -q 'name = Newer' "$HOME/.gitconfig"
 }
 

@@ -28,15 +28,16 @@ collector_carry() { # <bundle> <collector>
 
 carry_date() { friendly_date "$(cat "$(carry_dir)/.created" 2>/dev/null)"; }
 
-collect_all() { # <bundle> [quiet]
+collect_all() { # <bundle> [quiet|progress]
   local bundle=$1 quiet=${2:-} c rc why
-  # Visible runs get the two-bar animation; status runs it quietly with a plain spinner.
+  # Visible runs get the two-bar animation; status runs it quietly with a plain spinner;
+  # restore shows the bars but prints its own rows.
   local SPIN_DRAW="" SPIN_CLEAR=""
   COLLECTED=""
   CARRIED=""
   FAILED=""
   TROUBLE="" # failed or timed out now, whether or not an earlier copy stands in
-  if [ -z "$quiet" ]; then
+  if [ "$quiet" != quiet ]; then
     SPIN_DRAW=spin_draw_progress
     SPIN_CLEAR=spin_clear_progress
     progress_start "$(for c in $DUDU_COLLECTORS; do collector_enabled "$c" && echo "$c"; done | grep -c .)"

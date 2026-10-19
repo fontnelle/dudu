@@ -192,17 +192,29 @@ dest_all_hosts() {
 # and writes the destination it came from to <out>/.dudu-source (this often runs under spin,
 # a subshell, so a variable would be lost).
 dest_load_latest() { # <host> <out>
-  local d base best="" best_created="" created full=""
+  local d base best
   base=$(mktemp -d)
   tmp_register "$base"
   for d in $(dest_list); do
     "${d}_available" 2>/dev/null || continue
     mkdir -p "$base/$d"
     "${d}_load" "$1" "$base/$d" 2>/dev/null || continue
-    [ -f "$base/$d/manifest.json" ] || continue
-    created=$(sed -n 's/.*"created": *"\([^"]*\)".*/\1/p' "$base/$d/manifest.json")
+  done
+  best=$(dest_pick_best "$base")
+  if [ -z "$best" ]; then rm -rf "$base"; return 1; fi
+  cp -R "$base/$best/." "$2/"
+  printf '%s\n' "$best" > "$2/.dudu-source"
+  rm -rf "$base"
+}
+
+# Of the backups loaded into <base>/<dest>, prints the destination of the one to restore.
+dest_pick_best() { # <base>
+  local d best="" best_created="" created full=""
+  for d in $(dest_list); do
+    [ -f "$1/$d/manifest.json" ] || continue
+    created=$(sed -n 's/.*"created": *"\([^"]*\)".*/\1/p' "$1/$d/manifest.json")
     # A complete backup beats a newer partial one (made with --only, with tools missing).
-    if manifest_is_partial "$base/$d/manifest.json"; then
+    if manifest_is_partial "$1/$d/manifest.json"; then
       [ -n "$full" ] && continue
       if [ -z "$best" ] || [[ "$created" > "$best_created" ]]; then best=$d; best_created=$created; fi
     elif [ -z "$full" ] || [[ "$created" > "$best_created" ]]; then
@@ -211,10 +223,7 @@ dest_load_latest() { # <host> <out>
       full=1
     fi
   done
-  if [ -z "$best" ]; then rm -rf "$base"; return 1; fi
-  cp -R "$base/$best/." "$2/"
-  printf '%s\n' "$best" > "$2/.dudu-source"
-  rm -rf "$base"
+  [ -n "$best" ] && printf '%s' "$best"
 }
 
 # Copies a file under $HOME into <backup>/home/<relative path>, masking secrets.

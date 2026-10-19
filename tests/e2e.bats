@@ -54,6 +54,39 @@ setup() {
   [ ! -f "$HOME/.zshrc.dudu-bak" ]
 }
 
+@test "restore says so when this machine already matches the backup" {
+  dudu backup --only shell,git
+  run dudu restore --yes
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Local folder"*"restoring this one"* ]] || false
+  [[ "$output" == *"already matches the backup"* ]] || false
+  [ ! -f "$HOME/.gitconfig.dudu-bak" ]
+  [ ! -f "$HOME/.zshrc.dudu-bak" ]
+}
+
+@test "restore brings back only the tool that differs" {
+  dudu backup --only shell,git
+  echo 'changed' > "$HOME/.gitconfig"
+  run dudu restore --yes
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"matching"*"shell"* ]] || false
+  [[ "$output" == *"git"*"1 file changed"* ]] || false
+  [[ "$output" == *"What will be done"*"replace ~/.gitconfig"* ]] || false
+  [[ "$output" == *"✓ git"*"restored"* ]] || false
+  grep -q 'name = Dudu' "$HOME/.gitconfig"
+  [ ! -f "$HOME/.zshrc.dudu-bak" ]
+}
+
+@test "restore --dry-run compares and changes nothing" {
+  dudu backup --only shell,git
+  rm "$HOME/.gitconfig"
+  run dudu restore --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Comparing"*"git"* ]] || false
+  [[ "$output" == *"Dry run: nothing was changed."* ]] || false
+  [ ! -f "$HOME/.gitconfig" ]
+}
+
 @test "status reports a new dotfile" {
   dudu backup --only shell,git
   echo 'set -g mouse on' > "$HOME/.tmux.conf"

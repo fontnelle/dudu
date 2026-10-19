@@ -128,3 +128,17 @@ EOF
   DUDU_ROOT=/opt/homebrew/Cellar/dudu/0.1.0/libexec
   [ "$(stable_root)" = "/opt/homebrew/opt/dudu/libexec" ]
 }
+
+@test "status_changes names packages and settings as people know them" {
+  local a="$BATS_TEST_TMPDIR/a" b="$BATS_TEST_TMPDIR/b"
+  mkdir -p "$a" "$b"
+  printf 'brew "git"\n' > "$a/Brewfile"
+  printf '# Distributed revision control\nbrew "git"\ncask "iterm2"\nnpm "vercel"\n' > "$b/Brewfile"
+  echo system > "$a/manager"
+  echo nvm > "$b/manager"
+  echo 20 > "$b/default"
+  printf 'v20.19.6 vercel\n' > "$b/globals.txt"
+  run status_changes "$a" "$b"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf '%s\n' '+L iterm2 (cask)' '+V default version: 20' '+L vercel (node v20.19.6)' '~V version manager: system → nvm')" ]
+}

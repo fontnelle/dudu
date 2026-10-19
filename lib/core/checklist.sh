@@ -120,7 +120,7 @@ checklist_select() { # <title>
     fi
     printf '\033[2K%s%s%s   %s%s%s\033[J' \
       "$GRAY" "$(t "↑↓ Move · Space Select · A All · Enter %s · Q Cancel" "${CL_ACTION:-$(t "Update")}")" "$NC" \
-      "$GREEN" "$(t "%s selected" "$(checklist_selected_count)")" "$NC"
+      "$GREEN" "$(tn "%d item selected" "%d items selected" "$(checklist_selected_count)")" "$NC"
 
     key=$(read_key)
     case "$key" in

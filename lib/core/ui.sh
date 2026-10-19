@@ -124,7 +124,7 @@ spin() {
   local pid=$!
   SPIN_PID=$pid
   start=$SECONDS
-  [ -n "$show" ] && hide_cursor
+  [ -n "$show" ] && { hide_cursor; SPIN_COLS=$(term_cols); }
   while kill -0 "$pid" 2>/dev/null; do
     elapsed=$((SECONDS - start))
     if [ "$elapsed" -ge "$timeout" ]; then
@@ -148,11 +148,14 @@ spin() {
   return $rc
 }
 
+# The label is cut to the terminal width: a wrapped line cannot be redrawn in place.
 spin_draw_line() { # <label> <elapsed> <tick> <frame>
+  local label=$1 max=$((${SPIN_COLS:-80} - 10))
+  [ "${#label}" -gt "$max" ] && label="${label:0:$((max - 1))}…"
   if [ "$2" -ge 3 ]; then
-    printf '\r\033[2K%s%s%s %s %s%s%s' "$CYAN" "$4" "$NC" "$1" "$GRAY" "$(fmt_secs "$2")" "$NC"
+    printf '\r\033[2K%s%s%s %s %s%s%s' "$CYAN" "$4" "$NC" "$label" "$GRAY" "$(fmt_secs "$2")" "$NC"
   else
-    printf '\r\033[2K%s%s%s %s' "$CYAN" "$4" "$NC" "$1"
+    printf '\r\033[2K%s%s%s %s' "$CYAN" "$4" "$NC" "$label"
   fi
 }
 
@@ -245,12 +248,15 @@ phase_done() { # <summary>
   printf '  %s└ %s · %s%s\n' "$GRAY" "$1" "$(secs_short $((SECONDS - PROG_START)))" "$NC"
 }
 
-# A finished step inside a phase: ok/warn/fail, name, detail, optional time on the right.
-step_row() { # <ok|warn|fail> <name> <detail> [time]
+# A finished step inside a phase: ok/warn/fail (or, comparing, missing/diff), name, detail,
+# optional time on the right.
+step_row() { # <ok|warn|fail|missing|diff> <name> <detail> [time]
   local mark
   case "$1" in
     ok) mark="${GREEN}✓${NC}" ;;
     warn) mark="${YELLOW}⚠${NC}" ;;
+    missing) mark="${RED}✗${NC}" ;;
+    diff) mark="${YELLOW}~${NC}" ;;
     *) mark="${RED}✗${NC}" ;;
   esac
   local gap=$((14 - ${#2}))
