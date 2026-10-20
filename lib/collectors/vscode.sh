@@ -7,6 +7,12 @@ editor_cli() { # <cli> <App Name>
   if has "$1"; then command -v "$1"; return 0; fi
   local p="/Applications/$2.app/Contents/Resources/app/bin/$1"
   [ -x "$p" ] && { printf '%s' "$p"; return 0; }
+  # VS Code from Flathub (a Mac's cask restored on Linux) exports its command here.
+  if [ "$1" = code ]; then
+    for p in "$HOME/.local/share/flatpak/exports/bin/com.visualstudio.code" /var/lib/flatpak/exports/bin/com.visualstudio.code; do
+      [ -x "$p" ] && { printf '%s' "$p"; return 0; }
+    done
+  fi
   return 1
 }
 

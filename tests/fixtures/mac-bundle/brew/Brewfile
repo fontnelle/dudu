@@ -1,0 +1,11 @@
+tap "homebrew/bundle"
+# Distributed revision control system
+brew "git"
+brew "fd"
+brew "coreutils"
+brew "nvm"
+brew "postgresql@16", restart_service: :changed, link: true
+cask "slack"
+cask "magnet"
+mas "Xcode", id: 497799835
+vscode "esbenp.prettier-vscode"

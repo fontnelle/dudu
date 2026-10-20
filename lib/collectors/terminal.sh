@@ -135,10 +135,11 @@ Library/Application Support/iTerm2/DynamicProfiles/*"
       dim "  $(t "Terminal.app/iTerm2 profiles are macOS only, skipped")"
     fi
   fi
-  local missing
+  local missing hint
   missing=$(terminal_installed_fonts | missing_from "$1/fonts.txt")
   if [ -n "$missing" ]; then
-    warn "$(t "Your prompt used these Nerd Fonts, install them (e.g. %s):" "brew install --cask font-fira-code-nerd-font")"
+    if is_macos; then hint="brew install --cask font-fira-code-nerd-font"; else hint="nerdfonts.com → ~/.local/share/fonts, fc-cache -f"; fi
+    warn "$(t "Your prompt used these Nerd Fonts, install them (e.g. %s):" "$hint")"
     printf '%s\n' "$missing" | head -20 | sed 's/^/    /'
   fi
   return 0

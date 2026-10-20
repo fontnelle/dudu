@@ -32,6 +32,12 @@ jobs:
           ./dudu backup --only shell,git
           ./dudu restore --dry-run --only shell,git
           ./dudu status --only shell,git
+      - name: Smoke test (a Mac backup restored on Linux)
+        if: runner.os == 'Linux'
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: ./dudu restore --file tests/fixtures/mac-bundle --dry-run -y
 
   # macOS ships bash 3.2 as /bin/bash: dudu must keep working there.
   bash32:
@@ -70,3 +76,4 @@ jobs:
         run: |
           ./dudu backup --only syspkgs,shell
           ./dudu status --only syspkgs,shell
+          ./dudu restore --file tests/fixtures/mac-bundle --dry-run -y

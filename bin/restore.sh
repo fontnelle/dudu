@@ -126,6 +126,13 @@ restore_fetch_file() { # <out>
 restore_source_done() { # <bundle>
   RESTORE_CREATED=$(friendly_date "$(manifest_field "$1" created)")
   phase_done "$(manifest_field "$1" host) · $(manifest_field "$1" os_version) · dudu $(manifest_field "$1" dudu)"
+  if crossos_bundle "$1"; then
+    if is_macos; then
+      dim "  $(t "Made on %s: what only exists there is listed before restoring" "$(os_label "$(manifest_field "$1" os)")")"
+    else
+      dim "  $(t "Made on %s: Homebrew apps become %s and Flathub packages, what has no equivalent is listed before restoring" "$(os_label "$(manifest_field "$1" os)")" "$(linux_pm)")"
+    fi
+  fi
   crypto_open "$1"
 }
 
@@ -173,13 +180,22 @@ restore_collect_now() { # <dir> <collectors, comma separated>
 # RESTORE_DETAIL ("<tool>|<state>" lines, for the checklist). What a restore of each tool
 # would change goes to <work dir>/plan/<tool>, as status_changes lines.
 restore_compare() { # <bundle> <work dir>
-  local b=$1 now="$2/now" c n line same=""
+  local b=$1 now="$2/now" c n line same="" other=""
   RESTORE_ITEMS=""
   RESTORE_DIFF=""
   RESTORE_DETAIL=""
   RESTORE_PLAN="$2/plan"
+  RESTORE_LEFT_OUT="$2/left-out"
+  : > "$RESTORE_LEFT_OUT"
   for c in $DUDU_COLLECTORS; do
-    [ -d "$b/$c" ] && collector_enabled "$c" && RESTORE_ITEMS="$RESTORE_ITEMS $c"
+    { [ -d "$b/$c" ] && collector_enabled "$c"; } || continue
+    # A tool of the other OS only (macOS defaults on Linux): listed, never restored.
+    if collector_applies "$c"; then
+      RESTORE_ITEMS="$RESTORE_ITEMS $c"
+    else
+      other="$other $c"
+      printf '%s|%s\n' "$c" "$(safe_text "$(head -c 200 "$b/$c/.summary" 2>/dev/null)")" >> "$RESTORE_LEFT_OUT"
+    fi
   done
   RESTORE_ITEMS=${RESTORE_ITEMS# }
   [ -n "$RESTORE_ITEMS" ] || return 0
@@ -190,7 +206,10 @@ restore_compare() { # <bundle> <work dir>
   DUDU_SKIP_LOG="$2/skipped"
   : > "$DUDU_REDACT_LOG"
   : > "$DUDU_SKIP_LOG"
+  crossos_localize "$b" "$RESTORE_LEFT_OUT"
   restore_collect_now "$now" "$(echo "$RESTORE_ITEMS" | tr ' ' ',')"
+  # Homebrew turned into this Linux's packages is compared with them, not with "no brew".
+  [ -d "$b/brew/linux" ] && mkdir -p "$now/brew"
 
   # The rows come after every tool was read, the ones that match first, on one line.
   for c in $RESTORE_ITEMS; do
@@ -213,6 +232,9 @@ restore_compare() { # <bundle> <work dir>
   RESTORE_DIFF=${RESTORE_DIFF# }
   same=${same# }
   [ -n "$same" ] && step_row ok "$(t "matching")" "${same// /, }"
+  for c in $other; do
+    step_row skip "$c" "$(t "%s only, not restored here" "$(collector_os "$c")")"
+  done
   for c in $RESTORE_DIFF; do
     if list_has "$(echo "$FAILED" | tr ' ' ',')" "$c"; then
       line=$(t "could not be read on this machine")
@@ -290,7 +312,7 @@ restore_show_plan() { # <tools>
     done < <(grep '^.[AV]' "$RESTORE_PLAN/$c"; grep '^.[LD]' "$RESTORE_PLAN/$c"; grep '^.F' "$RESTORE_PLAN/$c")
   done
   [ -n "$replaced" ] && section_done "$(t "replaced files are kept next to them as .dudu-bak")"
-  return 0
+  crossos_show_left_out "$RESTORE_LEFT_OUT"
 }
 
 # Lets the user pick what to restore, with the tools that differ already checked.
@@ -343,6 +365,7 @@ cmd_restore() {
   if [ -z "$RESTORE_ITEMS" ]; then
     echo
     warn "$(t "Nothing to restore")"
+    crossos_show_left_out "$RESTORE_LEFT_OUT"
     rm -rf "$work"
     return 0
   fi
@@ -354,6 +377,7 @@ cmd_restore() {
     echo
     printf '%s%s✓ %s%s\n' "$GREEN" "$BOLD" "$(t "This machine already matches the backup from %s" "$RESTORE_CREATED")" "$NC"
     dim "  $(t "Nothing to restore. To reinstall a tool anyway: dudu restore --only <name>")"
+    crossos_show_left_out "$RESTORE_LEFT_OUT"
     rm -rf "$work"
     return 0
   fi

@@ -38,6 +38,8 @@ brew_safe_brewfile() { # <Brewfile>
 }
 
 brew_restore() {
+  # A Mac's Brewfile on Linux, already turned into this system's packages (crossos_localize).
+  if [ -d "$1/linux" ]; then crossos_brew_restore "$1"; return; fi
   if ! has brew && ! brew_load_shellenv; then
     step "$(t "Installing %s" Homebrew)"
     act_sh 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' || return 1

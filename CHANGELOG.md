@@ -3,6 +3,22 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
+## Unreleased · From a Mac to Linux
+
+### Added
+
+- **Restore a Mac's backup on Linux.** Homebrew formulae become apt, dnf or pacman packages, and known casks come from the system or Flathub (VS Code, Chrome, Slack...), without installing Homebrew. Editor and Ghostty settings move to `~/.config`. The plan lists what is left out before anything is installed: App Store apps, casks with no Linux build, macOS preferences, Terminal.app/iTerm2 profiles. The names that differ are in `lib/data/brew-linux.map`.
+- **Google Drive on Linux, set up by `dudu config`.** Checking Google Drive installs rclone, connects your Google account and points it at the same `dudu` folder the Mac writes to. It then lists the machines it found there.
+
+### Changed
+
+- **Tools of the other OS are listed, not restored.** macOS preferences on Linux, or Linux packages on a Mac, show as "macOS only, not restored here" instead of "not on this machine". They are not checked and not restored with `-y`.
+- **The Nerd Fonts hint on Linux** points to `~/.local/share/fonts` instead of a Homebrew cask.
+
+### Fixed
+
+- **Google Drive through rclone falls back to an older backup** when the newest one fails its checksums, as the folder destinations already did.
+
 ## v0.3.0 · Restore shows what it will do
 
 ### Changed

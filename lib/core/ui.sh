@@ -250,13 +250,14 @@ phase_done() { # <summary>
 
 # A finished step inside a phase: ok/warn/fail (or, comparing, missing/diff), name, detail,
 # optional time on the right.
-step_row() { # <ok|warn|fail|missing|diff> <name> <detail> [time]
+step_row() { # <ok|warn|fail|missing|diff|skip> <name> <detail> [time]
   local mark
   case "$1" in
     ok) mark="${GREEN}✓${NC}" ;;
     warn) mark="${YELLOW}⚠${NC}" ;;
     missing) mark="${RED}✗${NC}" ;;
     diff) mark="${YELLOW}~${NC}" ;;
+    skip) mark="${GRAY}–${NC}" ;;
     *) mark="${RED}✗${NC}" ;;
   esac
   local gap=$((14 - ${#2}))

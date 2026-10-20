@@ -1,0 +1,13 @@
+{
+  "dudu": "0.3.0",
+  "created": "2026-10-19T15:30:27Z",
+  "host": "Test-Mac",
+  "machine": "000000000000",
+  "os": "macos",
+  "os_version": "macOS 26.0",
+  "arch": "arm64",
+  "partial": false,
+  "collectors": ["brew", "terminal", "vscode", "macos"],
+  "carried": [],
+  "failed": []
+}

@@ -51,13 +51,21 @@ gdrive_save() {
 
 gdrive_load() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then
-    local remote="${DUDU_RCLONE_REMOTE%/}/$1" stamp
-    stamp=$(rclone cat "$remote/latest" 2>/dev/null | head -1 | tr -d '\r')
-    valid_stamp "$stamp" || stamp=""
-    [ -n "$stamp" ] || stamp=$(rclone lsf --dirs-only "$remote" | tr -d '/' | grep -E "$STAMP_RE" | sort -r | head -1)
-    [ -n "$stamp" ] || return 1
-    rclone copy "$remote/$stamp" "$2" && bundle_verify "$2"
-    return
+    local remote="${DUDU_RCLONE_REMOTE%/}/$1" latest stamp first=""
+    latest=$(rclone cat "$remote/latest" 2>/dev/null | head -1 | tr -d '\r')
+    valid_stamp "$latest" || latest=""
+    # "latest" first, then the others newest first: a damaged copy falls back to the next.
+    for stamp in $latest $(rclone lsf --dirs-only "$remote" 2>/dev/null | tr -d '/' | grep -E "$STAMP_RE" |
+                           LC_ALL=C sort -r | grep -vxF -- "${latest:-none}"); do
+      [ -z "$first" ] && first=$stamp
+      rm -rf "${2:?}"/* "$2"/.[!.]* 2>/dev/null
+      if rclone copy "$remote/$stamp" "$2" && bundle_verify "$2"; then
+        [ "$stamp" != "$first" ] && warn "$(t "The newest backup was damaged, using %s" "$stamp")" >&2
+        return 0
+      fi
+      printf 'damaged backup skipped: %s/%s\n' "$remote" "$stamp" >> "$DUDU_LOG"
+    done
+    return 1
   fi
   folder_load "$(gdrive_root)" "$1" "$2"
 }

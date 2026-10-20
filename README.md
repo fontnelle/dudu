@@ -67,6 +67,28 @@ dudu restore
 
 The restore runs in order: Homebrew first (which brings pyenv, go, fonts...), then the shell and git config, Node versions, global packages, editors and macOS preferences. Every step is idempotent: what is already installed is skipped, and a file that differs is kept as `<file>.dudu-bak`.
 
+## From a Mac to Linux
+
+A backup made on a Mac restores on Linux too, as far as Linux allows. Google Drive is the bridge: the Mac writes to it with Drive for desktop, Linux reads it through `rclone`.
+
+```bash
+# On the Mac: add Google Drive to the destinations, then back up
+dudu config
+dudu backup
+
+# On Linux
+curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/main/install.sh | bash
+dudu config                     # check Google Drive: dudu installs rclone and signs you in
+dudu restore --dry-run --from <mac name>
+dudu restore --from <mac name>
+```
+
+- **Homebrew becomes the system's packages.** Formulae are installed with apt, dnf or pacman under the same name when the repositories have it (`fd` becomes `fd-find`, `node` becomes `nodejs`...). Known casks come from the system or from Flathub (VS Code, Chrome, Slack, Spotify, Obsidian...). Homebrew itself is not installed. If it is already on the machine, formulae with no native package go to it.
+- **Settings follow the paths of Linux.** VS Code and Cursor settings move from `~/Library/Application Support` to `~/.config`, and so does Ghostty's.
+- **Before anything is installed, the plan lists what is left out:** Mac App Store apps, casks with no Linux build, macOS preferences and Terminal.app/iTerm2 profiles.
+
+The names that differ are in [`lib/data/brew-linux.map`](lib/data/brew-linux.map). A missing app is one line away.
+
 ## Where backups go
 
 | Destination | Where | Notes |
@@ -82,7 +104,7 @@ Pick **one or more** with `dudu config` or `dudu config set destination icloud,n
 
 | Collector | Saves | Restores with |
 | --- | --- | --- |
-| `brew` | Brewfile (formulae, casks, taps, Mac App Store) | `brew bundle install` (installs Homebrew if needed) |
+| `brew` | Brewfile (formulae, casks, taps, Mac App Store) | `brew bundle install` (installs Homebrew if needed). On Linux, a Mac's Brewfile becomes apt/dnf/pacman and Flathub packages |
 | `syspkgs` | manually installed apt/dnf/pacman packages, flatpak, snap | the system package manager |
 | `shell` | `.zshrc`, `.zprofile`, `.bashrc`, `.p10k.zsh`, `starship.toml`, tmux, vim, fish, nvim, Oh My Zsh custom plugins/themes (as git URLs) | copies files, installs Oh My Zsh, clones plugins |
 | `git` | `.gitconfig`, global gitignore, `~/.ssh/config`, gh config | copies files |

@@ -474,6 +474,17 @@ i18n_catalog_es() {
     "… and %d more (dudu outdated --all)") I18N_MSG="… y %d más (dudu outdated --all)" ;;
     "… and %d more, see dudu secrets") I18N_MSG="… y %d más, mira dudu secrets" ;;
     "↑↓ Move · Space Select · A All · Enter %s · Q Cancel") I18N_MSG="↑↓ Mover · Espacio Marcar · A Todos · Enter %s · Q Cancelar" ;;
+    "%s only, not restored here") I18N_MSG="solo en %s, no se restaura aquí" ;;
+    "Backups found in Google Drive: %s") I18N_MSG="Backups encontrados en Google Drive: %s" ;;
+    "Connect your Google account to rclone now? A browser opens to sign in.") I18N_MSG="¿Conectar tu cuenta de Google a rclone ahora? Se abre un navegador para iniciar sesión." ;;
+    "could not add %s") I18N_MSG="no se pudo agregar %s" ;;
+    "Google Drive on Linux goes through rclone. Install it now?") I18N_MSG="En Linux, Google Drive se usa a través de rclone. ¿Instalarlo ahora?" ;;
+    "Left out") I18N_MSG="Quedó fuera" ;;
+    "made for the other system, nothing to restore it with here") I18N_MSG="hecho para el otro sistema, no hay cómo restaurarlo aquí" ;;
+    "Made on %s: Homebrew apps become %s and Flathub packages, what has no equivalent is listed before restoring") I18N_MSG="Hecho en %s: las apps de Homebrew pasan a ser paquetes %s y de Flathub, lo que no tiene equivalente se lista antes de restaurar" ;;
+    "Made on %s: what only exists there is listed before restoring") I18N_MSG="Hecho en %s: lo que solo existe allí se lista antes de restaurar" ;;
+    "No backups in %s yet: back up on your Mac with Google Drive checked in dudu config.") I18N_MSG="Aún no hay backups en %s: haz el backup en tu Mac con Google Drive marcado en dudu config." ;;
+    "rclone could not connect to Google Drive") I18N_MSG="rclone no pudo conectarse a Google Drive" ;;
     *) return 1 ;;
   esac
 }

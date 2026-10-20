@@ -39,32 +39,40 @@ syspkgs_backup() {
   summary "$1" "$(tn "%d %s package" "%d %s packages" "$(count_lines "$1/packages.txt")" "$pm")"
 }
 
+# Installs the packages of <list> this system does not have yet, in one batch if it can.
+syspkgs_install_missing() { # <pm> <list>
+  local pkgs p
+  pkgs=$(syspkgs_list_installed "$1" | missing_pkgs "$2")
+  if [ -z "$pkgs" ]; then
+    dim "  $(t "all packages already installed")"
+    return 0
+  fi
+  [ "$1" = apt ] && as_root apt-get update
+  # shellcheck disable=SC2086
+  if ! syspkgs_install "$1" $pkgs; then
+    warn "$(t "Batch install failed, installing one by one")"
+    for p in $pkgs; do syspkgs_install "$1" "$p" || warn "$(t "could not install %s" "$p")"; done
+  fi
+}
+
+# Installs the Flathub apps of <list> that are missing.
+syspkgs_flatpak_missing() { # <list>
+  local app
+  while IFS= read -r app; do
+    act flatpak install -y --noninteractive flathub "$app" || warn "$(t "could not install %s" "$app")"
+  done < <(flatpak list --app --columns=application 2>/dev/null | missing_pkgs "$1")
+}
+
 syspkgs_restore() {
   if is_macos; then dim "  $(t "Linux only, skipped")"; return 0; fi
-  local pm saved pkgs
+  local pm saved
   pm=$(linux_pm)
   saved=$(cat "$1/manager" 2>/dev/null)
   if [ "$pm" != "$saved" ]; then
     warn "$(t "Backup came from %s, this machine uses %s. Trying the same package names." "$saved" "$pm")"
   fi
-  pkgs=$(syspkgs_list_installed "$pm" | missing_pkgs "$1/packages.txt")
-  if [ -z "$pkgs" ]; then
-    dim "  $(t "all packages already installed")"
-  else
-    [ "$pm" = apt ] && as_root apt-get update
-    # shellcheck disable=SC2086
-    if ! syspkgs_install "$pm" $pkgs; then
-      warn "$(t "Batch install failed, installing one by one")"
-      local p
-      for p in $pkgs; do syspkgs_install "$pm" "$p" || warn "$(t "could not install %s" "$p")"; done
-    fi
-  fi
-  if [ -s "$1/flatpak.txt" ] && has flatpak; then
-    local app
-    while IFS= read -r app; do
-      act flatpak install -y --noninteractive flathub "$app" || warn "$(t "could not install %s" "$app")"
-    done < <(flatpak list --app --columns=application 2>/dev/null | missing_pkgs "$1/flatpak.txt")
-  fi
+  syspkgs_install_missing "$pm" "$1/packages.txt"
+  if [ -s "$1/flatpak.txt" ] && has flatpak; then syspkgs_flatpak_missing "$1/flatpak.txt"; fi
   if [ -s "$1/snap.txt" ] && has snap; then
     local s
     while IFS= read -r s; do

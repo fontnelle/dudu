@@ -30,6 +30,9 @@ pretty_list() { # <relative path>  (lines on stdin)
     Brewfile|*/Brewfile)
       awk '/^(tap|brew|cask|mas|vscode|whalebrew) "/ { k = $1; split($0, q, "\""); n = q[2]
              if (k == "brew") print n; else if (k == "mas") print n " (App Store)"; else print n " (" k ")" }' ;;
+    # A Mac's Brewfile turned into this Linux's packages (crossos_brew_localize).
+    linux/*.txt)
+      awk -v k="$(basename "$1" .txt)" 'NF { print $0 " (" (k == "brew" ? "Homebrew" : k) ")" }' ;;
     *globals.txt)
       awk 'NF == 2 && $1 ~ /^v[0-9]/ { print $2 " (node " $1 ")"; next }
            NF == 2 && $1 == "default" { print $2; next } NF { print }' ;;
