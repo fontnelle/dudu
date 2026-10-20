@@ -5,11 +5,40 @@ dudu_os() {
   case "$(uname -s)" in
     Darwin) echo macos ;;
     Linux) echo linux ;;
+    MINGW* | MSYS* | CYGWIN*) echo windows ;;
     *) echo unknown ;;
   esac
 }
 
 is_macos() { [ "$(uname -s)" = Darwin ]; }
+is_linux() { [ "$(uname -s)" = Linux ]; }
+# Git Bash (MSYS2), the shell dudu runs in on Windows.
+is_windows() { case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) return 0 ;; esac; return 1; }
+
+# Windows paths <-> Git Bash paths (C:\Users\x <-> /c/Users/x).
+win_path() { if has cygpath; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
+unix_path() { if has cygpath; then cygpath -u "$1"; else printf '%s' "$1"; fi; }
+
+# %APPDATA% and %LOCALAPPDATA% as Git Bash paths, with the usual default when unset.
+win_appdata() {
+  if [ -n "${APPDATA:-}" ]; then unix_path "$APPDATA"; else printf '%s' "$HOME/AppData/Roaming"; fi
+}
+win_localappdata() {
+  if [ -n "${LOCALAPPDATA:-}" ]; then unix_path "$LOCALAPPDATA"; else printf '%s' "$HOME/AppData/Local"; fi
+}
+
+# One value from the Windows registry: win_reg 'HKLM\...\Key' ValueName.
+win_reg() {
+  reg query "$1" //v "$2" 2>/dev/null | sed -n 's/.*REG_[A-Z_]*[[:space:]]*//p' | tr -d '\r' | head -n 1
+}
+
+# Windows package manager (winget and scoop are their own collectors).
+win_pm() {
+  if has winget; then echo winget
+  elif has scoop; then echo scoop
+  elif has choco; then echo choco
+  fi
+}
 
 # System package manager on Linux (brew is its own collector).
 linux_pm() {
@@ -22,6 +51,13 @@ linux_pm() {
 os_pretty() {
   if is_macos; then
     printf 'macOS %s' "$(sw_vers -productVersion 2>/dev/null)"
+  elif is_windows; then
+    local key='HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion' v build
+    v=$(win_reg "$key" ProductName)
+    build=$(win_reg "$key" CurrentBuild)
+    # Windows 11 still says "Windows 10" in ProductName; its builds start at 22000.
+    case "$build" in [0-9]*) [ "$build" -ge 22000 ] && v=$(printf '%s' "$v" | sed 's/Windows 10/Windows 11/') ;; esac
+    printf '%s' "${v:-Windows}"
   elif [ -r /etc/os-release ]; then
     (. /etc/os-release && printf '%s' "${PRETTY_NAME:-Linux}")
   else
@@ -33,6 +69,7 @@ os_pretty() {
 dudu_host() {
   local h=""
   is_macos && h=$(scutil --get LocalHostName 2>/dev/null)
+  is_windows && h=${COMPUTERNAME:-}
   [ -n "$h" ] || h=$(hostname -s 2>/dev/null || uname -n)
   printf '%s' "$h" | tr -cd 'A-Za-z0-9._-'
 }
@@ -42,8 +79,9 @@ file_mtime() {
 }
 
 # sudo only when needed (containers often run as root without sudo).
+# Git Bash has no sudo: the command runs as is, with the rights of this terminal.
 as_root() {
-  if [ "$(id -u)" -eq 0 ]; then act "$@"; else act sudo "$@"; fi
+  if is_windows || [ "$(id -u)" -eq 0 ]; then act "$@"; else act sudo "$@"; fi
 }
 
 # Seconds since epoch for an ISO date like 2026-10-17T13:02:20Z (UTC).

@@ -48,6 +48,13 @@ i18n_apple_language() {
   defaults read -g AppleLanguages 2>/dev/null | sed -n '2s/[^A-Za-z_-]//gp'
 }
 
+# The Windows display locale (Settings › Time & language), e.g. pt-BR. Git Bash usually
+# sets LANG from it already; this covers scheduled tasks, which start with no LANG.
+i18n_windows_language() {
+  is_windows || return 1
+  win_reg 'HKCU\Control Panel\International' LocaleName
+}
+
 # The language the system asks for: LANGUAGE, LC_ALL, LC_MESSAGES, LANG (gettext's order),
 # then macOS. Prints the language and returns 1 when nothing says.
 i18n_system_language() {
@@ -64,6 +71,7 @@ i18n_system_language() {
     l=$(i18n_normalize "$v") && { printf '%s' "$l"; return 0; }
   done
   v=$(i18n_apple_language) && l=$(i18n_normalize "$v") && { printf '%s' "$l"; return 0; }
+  v=$(i18n_windows_language) && l=$(i18n_normalize "$v") && { printf '%s' "$l"; return 0; }
   return 1
 }
 

@@ -29,7 +29,9 @@ show_banner() {
 }
 
 child_pids() { # <pid>
-  if has pgrep; then pgrep -P "$1" 2>/dev/null; else ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'; fi
+  # Git Bash: no pgrep and no ps -o; plain ps prints PID PPID PGID WINPID ...
+  if is_windows; then ps -a 2>/dev/null | awk -v p="$1" 'NR > 1 && $2 == p { print $1 }'
+  elif has pgrep; then pgrep -P "$1" 2>/dev/null; else ps -A -o pid= -o ppid= 2>/dev/null | awk -v p="$1" '$2 == p { print $1 }'; fi
 }
 
 # Every process under <pid>, deepest first.
@@ -54,6 +56,13 @@ kill_tree() { # <pid>
     i=$((i + 1))
   done
   for p in $pids; do kill -9 "$p" 2>/dev/null || true; done
+  # Windows programs started from Git Bash (npm.cmd -> node.exe) are not in ps's tree.
+  if is_windows; then
+    for p in $pids; do
+      p=$(ps -a 2>/dev/null | awk -v p="$p" 'NR > 1 && $1 == p { print $4 }')
+      [ -n "$p" ] && taskkill //T //F //PID "$p" >/dev/null 2>&1
+    done
+  fi
   return 0
 }
 
@@ -185,7 +194,8 @@ fmt_secs() {
 term_cols() {
   local c
   c=$( { stty size </dev/tty; } 2>/dev/null | awk '{ print $2 }')
-  [ -n "$c" ] && [ "$c" -gt 20 ] 2>/dev/null || c=80
+  [ -n "$c" ] && [ "$c" -gt 20 ] 2>/dev/null || c=${COLUMNS:-80}
+  [ "$c" -gt 20 ] 2>/dev/null || c=80
   printf '%s' "$c"
 }
 

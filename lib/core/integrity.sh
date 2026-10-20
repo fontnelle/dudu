@@ -54,6 +54,8 @@ machine_id() {
   local raw=""
   if is_macos; then
     raw=$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | sed -n 's/.*"IOPlatformUUID" = "\(.*\)"/\1/p')
+  elif is_windows; then
+    raw=$(win_reg 'HKLM\SOFTWARE\Microsoft\Cryptography' MachineGuid)
   fi
   [ -n "$raw" ] || raw=$(cat /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null | head -1)
   [ -n "$raw" ] || raw=$(uname -n)
