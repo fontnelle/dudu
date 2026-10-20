@@ -3,7 +3,7 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
-## Unreleased · Google Drive in four steps
+## v0.5.0 · Google Drive in four steps
 
 ### Added
 
