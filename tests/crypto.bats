@@ -41,7 +41,11 @@ setup() {
 
 @test "a single changed byte is caught before decrypting" {
   crypto_seal "$b"
-  printf 'X' | dd of="$b/backup.enc" bs=1 seek=40 conv=notrunc 2>/dev/null
+  # A byte that really differs: writing X over an X would change nothing (1 in 256).
+  local old new=X
+  old=$(dd if="$b/backup.enc" bs=1 skip=40 count=1 2>/dev/null)
+  [ "$old" = X ] && new=Y
+  printf '%s' "$new" | dd of="$b/backup.enc" bs=1 seek=40 conv=notrunc 2>/dev/null
   CRYPTO_PW=""
   run crypto_open "$b"
   [ "$status" -ne 0 ]
