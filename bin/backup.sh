@@ -343,7 +343,7 @@ dest_saved_where() { # <dest> <stamp>
       if [ -n "$DUDU_RCLONE_REMOTE" ]; then
         # The folder's web address, to open it in the browser; the rclone path otherwise.
         gdrive_folder_link "$DUDU_RCLONE_REMOTE" "$DUDU_BACKUP_HOST" ||
-          printf '%s/%s' "$(rclone_join "$DUDU_RCLONE_REMOTE" "$(gdrive_host_dir "$DUDU_BACKUP_HOST")")" "$2"
+          printf '%s/%s.tar.gz' "$(rclone_join "$DUDU_RCLONE_REMOTE" "$(gdrive_host_dir "$DUDU_BACKUP_HOST")")" "$2"
       else
         tilde "$(dest_saved_dir gdrive "$2")"
       fi

@@ -67,17 +67,28 @@ setup_and_show() {
   run setup_and_show <<< $'\nn'
   [ "$status" -eq 0 ]
   grep -qx 'remote=dudu-gdrive:' <<< "$output"
-  grep -q 'config create dudu-gdrive drive scope=drive.file$' "$FAKE/calls"
+  grep -q "config create dudu-gdrive drive scope=drive.file config_template_file=$DUDU_CONFIG_DIR/google-signin.html$" "$FAKE/calls"
   grep -q 'rcat dudu-gdrive:dudu-Mac-1/.dudu-check' "$FAKE/calls"
   grep -q 'deletefile dudu-gdrive:dudu-Mac-1/.dudu-check' "$FAKE/calls"
   # Where the backups go, as a link to open in the browser.
   [[ "$output" == *"https://drive.google.com/drive/folders/FOLDERID12345"* ]] || false
 }
 
+@test "the page after the Google sign-in is dudu's, with both outcomes" {
+  run setup_and_show <<< $'\nn'
+  local page="$DUDU_CONFIG_DIR/google-signin.html"
+  [ -f "$page" ]
+  grep -q '{{ if .OK }}' "$page"
+  grep -q 'Google Drive connected' "$page"
+  grep -q 'dudu sees only the files it creates' "$page"
+  grep -q '{{ .Name }}' "$page"
+  grep -q 'dudu config gdrive' "$page"
+}
+
 @test "1 is the same as Enter" {
   run setup_and_show <<< $'1\nn'
   [ "$status" -eq 0 ]
-  grep -q 'scope=drive.file$' "$FAKE/calls"
+  grep -q 'scope=drive.file config_template_file=' "$FAKE/calls"
 }
 
 @test "2 and a link: that folder, with access to the Drive" {
@@ -85,7 +96,7 @@ setup_and_show() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"valid link · folder 1RBB6DaMcICS9hhEKQ2fv9TJZ_1fz_9cm"* ]] || false
   grep -qx 'remote=dudu-gdrive:' <<< "$output"
-  grep -q 'config create dudu-gdrive drive scope=drive root_folder_id=1RBB6DaMcICS9hhEKQ2fv9TJZ_1fz_9cm' "$FAKE/calls"
+  grep -q 'config create dudu-gdrive drive scope=drive root_folder_id=1RBB6DaMcICS9hhEKQ2fv9TJZ_1fz_9cm config_template_file=' "$FAKE/calls"
   grep -q 'rcat dudu-gdrive:dudu-Mac-1/.dudu-check' "$FAKE/calls"
 }
 

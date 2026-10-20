@@ -135,21 +135,91 @@ gdrive_remote_value() { # <key>
 
 # Step 3: dudu's remote, signed in to Google for <scope> (and <folder id>). A remote set up
 # for another folder or scope is made again: the sign-in grants one scope.
+# The page the browser shows once Google sends it back, in dudu's language, instead of
+# rclone's plain "Success!". rclone fills it in (Go template): .OK, and .Name and
+# .Description on an error. It is kept in dudu's config folder, a path that survives
+# updates, because rclone reads it again on a reconnect.
+gdrive_signin_page() { # <scope>  (prints the file)
+  local f="$DUDU_CONFIG_DIR/google-signin.html" access
+  if [ "$1" = drive.file ]; then
+    access=$(t "dudu sees only the files it creates in your Drive, nothing else.")
+  else
+    access=$(t "dudu can reach the folder you chose and the rest of your Drive.")
+  fi
+  mkdir -p "$DUDU_CONFIG_DIR"
+  cat > "$f" <<PAGE
+<!doctype html>
+<html lang="$DUDU_LANG_ACTIVE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ if .OK }}dudu · $(t "Google Drive connected"){{ else }}dudu · $(t "Could not connect"){{ end }}</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #fff; --text: #1d2129; --muted: #5f6672; --ok: #1a7f37; --bad: #c62828; --code: #eef0f3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16181d; --card: #20232a; --text: #e8eaee; --muted: #a0a6b1; --ok: #4ac26b; --bad: #ff6b6b; --code: #2b2f37; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+         background: var(--bg); color: var(--text);
+         font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif; }
+  main { width: 100%; max-width: 460px; background: var(--card); border-radius: 16px; padding: 32px;
+         box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06); }
+  .brand { font: 600 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+          font-size: 30px; font-weight: 700; color: #fff; margin: 20px 0 16px; }
+  .ok .icon { background: var(--ok); }
+  .bad .icon { background: var(--bad); }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; color: var(--muted); }
+  p.next { color: var(--text); font-weight: 500; }
+  code { background: var(--code); padding: 2px 6px; border-radius: 6px; font-size: 14px; }
+  .error { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code);
+           padding: 10px 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+{{ if .OK }}
+<main class="ok">
+  <div class="brand">dudu · Google Drive</div>
+  <div class="icon">✓</div>
+  <h1>$(t "Google Drive connected")</h1>
+  <p class="next">$(t "You can close this tab and go back to the terminal: dudu carries on with the checks.")</p>
+  <p>${access}</p>
+</main>
+{{ else }}
+<main class="bad">
+  <div class="brand">dudu · Google Drive</div>
+  <div class="icon">!</div>
+  <h1>$(t "Could not connect")</h1>
+  <p class="next">$(t "Go back to the terminal and run %s again." "<code>dudu config gdrive</code>")</p>
+  <div class="error">{{ .Name }}{{ if .Description }}: {{ .Description }}{{ end }}</div>
+</main>
+{{ end }}
+</body>
+</html>
+PAGE
+  printf '%s' "$f"
+}
+
 gdrive_setup_account() { # <scope> [folder id]
-  local scope=$1 folder=${2:-}
+  local scope=$1 folder=${2:-} page
+  page=$(gdrive_signin_page "$scope")
   if rclone listremotes 2>/dev/null | grep -qxF "$GDRIVE_REMOTE:" &&
      { [ "$(gdrive_remote_value scope)" != "$scope" ] || [ "$(gdrive_remote_value root_folder_id)" != "$folder" ]; }; then
     rclone config delete "$GDRIVE_REMOTE" >/dev/null 2>&1
   fi
   if ! rclone listremotes 2>/dev/null | grep -qxF "$GDRIVE_REMOTE:"; then
-    dim "  $(t "A browser opens to sign in to Google. Come back here when it says Success.")"
-    if ! rclone config create "$GDRIVE_REMOTE" drive scope="$scope" ${folder:+root_folder_id="$folder"} >> "$DUDU_LOG" 2>&1; then
+    dim "  $(t "A browser opens to sign in to Google. Come back here when it says Google Drive connected.")"
+    if ! rclone config create "$GDRIVE_REMOTE" drive scope="$scope" ${folder:+root_folder_id="$folder"} \
+         config_template_file="$page" >> "$DUDU_LOG" 2>&1; then
       step_row fail "$(t "Google account")" "$(t "sign-in did not finish, see %s" "$(tilde "$DUDU_LOG")")"
       return 1
     fi
   elif ! rclone about "$GDRIVE_REMOTE:" >/dev/null 2>&1; then
     # Signed in before, but the token expired or was revoked.
-    dim "  $(t "A browser opens to sign in to Google. Come back here when it says Success.")"
+    dim "  $(t "A browser opens to sign in to Google. Come back here when it says Google Drive connected.")"
+    rclone config update "$GDRIVE_REMOTE" config_template_file="$page" >/dev/null 2>&1
     rclone config reconnect "$GDRIVE_REMOTE:" >> "$DUDU_LOG" 2>&1
   fi
   if ! rclone about "$GDRIVE_REMOTE:" >/dev/null 2>&1; then

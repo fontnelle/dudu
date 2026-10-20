@@ -111,11 +111,15 @@ dudu_unlock() {
 # never use it for anything that must prompt (sudo, installers).
 # The frame is drawn by $SPIN_DRAW <label> <elapsed> <tick> <frame> and wiped by $SPIN_CLEAR,
 # so callers can show more than one line (see spin_draw_progress).
+# A step that knows how far it is writes "<percent> <time left>" to $DUDU_SPIN_STATUS
+# (see rclone_upload); the frame then shows a filling bar and the time left.
 spin() {
   local label=$1
   shift
   local timeout=${DUDU_STEP_TIMEOUT:-300} show=1 i=0 rc start elapsed
   local draw=${SPIN_DRAW:-spin_draw_line} wipe=${SPIN_CLEAR:-spin_clear_line}
+  local DUDU_SPIN_STATUS="$DUDU_CACHE_DIR/spin-status.$$" SPIN_PCT="" SPIN_ETA=""
+  rm -f "$DUDU_SPIN_STATUS"
   { [ -t 1 ] && [ -z "${DUDU_NO_SPINNER:-}" ] && [ "${TERM:-}" != dumb ]; } || show=""
   local frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
   # The explicit subshell matters: nvm misbehaves when a function itself is the background job.
@@ -132,9 +136,11 @@ spin() {
       wait "$pid" 2>/dev/null
       SPIN_PID=""
       printf -- '--- %s timed out after %ss\n' "$label" "$timeout" >> "$DUDU_LOG"
+      rm -f "$DUDU_SPIN_STATUS"
       [ -n "$show" ] && { "$wipe"; show_cursor; }
       return 124
     fi
+    [ $((i % 10)) -eq 0 ] && [ -f "$DUDU_SPIN_STATUS" ] && read -r SPIN_PCT SPIN_ETA < "$DUDU_SPIN_STATUS"
     [ -n "$show" ] && "$draw" "$label" "$elapsed" "$i" "${frames[i % 10]}"
     i=$((i + 1))
     sleep 0.1
@@ -142,6 +148,7 @@ spin() {
   wait "$pid"
   rc=$?
   SPIN_PID=""
+  rm -f "$DUDU_SPIN_STATUS"
   # 99 = tool not on this machine, not worth a log line.
   [ $rc -ne 0 ] && [ $rc -ne 99 ] && printf -- '--- %s rc=%s\n' "$label" "$rc" >> "$DUDU_LOG"
   [ -n "$show" ] && { "$wipe"; show_cursor; }
@@ -151,15 +158,24 @@ spin() {
 # The label is cut to the terminal width: a wrapped line cannot be redrawn in place.
 spin_draw_line() { # <label> <elapsed> <tick> <frame>
   local label=$1 max=$((${SPIN_COLS:-80} - 10))
+  [ -n "${SPIN_PCT:-}" ] && max=$((max - 22))
   [ "${#label}" -gt "$max" ] && label="${label:0:$((max - 1))}…"
   if [ "$2" -ge 3 ]; then
-    printf '\r\033[2K%s%s%s %s %s%s%s' "$CYAN" "$4" "$NC" "$label" "$GRAY" "$(fmt_secs "$2")" "$NC"
+    printf '\r\033[2K%s%s%s %s %s%s%s%s' "$CYAN" "$4" "$NC" "$label" "$GRAY" "$(fmt_secs "$2")" "$(spin_left)" "$NC"
   else
     printf '\r\033[2K%s%s%s %s' "$CYAN" "$4" "$NC" "$label"
   fi
 }
 
 spin_clear_line() { printf '\r\033[2K'; }
+
+# " · 45% · 8s left" while the running step reports its progress, nothing otherwise.
+spin_left() {
+  [ -n "${SPIN_PCT:-}" ] || return 0
+  printf ' · %s%%' "$SPIN_PCT"
+  [ -n "${SPIN_ETA:-}" ] && [ "$SPIN_PCT" -lt 100 ] 2>/dev/null && printf ' · %s' "$(t "%s left" "$SPIN_ETA")"
+  return 0
+}
 
 # 12s, 3m05s
 fmt_secs() {
@@ -213,8 +229,10 @@ progress_line() {
 # The cursor goes back up so the next frame redraws in place.
 spin_draw_progress() { # <label> <elapsed> <tick> <frame>
   local bar=""
-  [ "${PROG_COLS:-80}" -ge 70 ] && bar="$(bounce_bar "$3" 18)  "
-  printf '\r\033[2K  %s%s%s %s %s%s%s%s\n' "$CYAN" "$4" "$NC" "$(pad "$1" 34)" "$bar" "$GRAY" "$(fmt_secs "$2")" "$NC"
+  if [ "${PROG_COLS:-80}" -ge 70 ]; then
+    if [ -n "${SPIN_PCT:-}" ]; then bar="$(progress_bar "$SPIN_PCT" 100 18)  "; else bar="$(bounce_bar "$3" 18)  "; fi
+  fi
+  printf '\r\033[2K  %s%s%s %s %s%s%s%s%s\n' "$CYAN" "$4" "$NC" "$(pad "$1" 34)" "$bar" "$GRAY" "$(fmt_secs "$2")" "$(spin_left)" "$NC"
   printf '\033[2K\n'
   progress_line
   printf '\r\033[2A'

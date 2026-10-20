@@ -3,6 +3,18 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
+## Unreleased · Google Drive, faster
+
+### Changed
+
+- **Backups go up to Google Drive as one file**, `<stamp>.tar.gz`, instead of a tree of small files. Google takes about a second for each file and folder it creates, and rclone's shared access is rate limited, so a backup of 47 files took 5 minutes. One archive takes seconds. Backups saved as folders by older versions are still read and are dropped by `keep`.
+- **The Google Drive line shows how far the upload is:** a filling bar, the percent and the time left.
+- **The page after the Google sign-in is dudu's.** It replaces rclone's plain "Success! All done. Please go back to rclone.". It says Google Drive is connected, that the tab can be closed and dudu carries on in the terminal, and what dudu can see in your Drive. On an error, it shows what Google said and how to try again. It is in your language and follows the light or dark theme.
+
+### Fixed
+
+- **Old backups on Google Drive are removed again by `keep`.** With dudu's minimal access, Google refused to delete a backup folder in one go, so older backups piled up. Their files are now deleted first, then the folders.
+
 ## v0.5.1 · Google Drive, clearly
 
 ### Changed

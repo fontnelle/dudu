@@ -475,7 +475,6 @@ i18n_catalog_es() {
     "made for the other system, nothing to restore it with here") I18N_MSG="hecho para el otro sistema, no hay cómo restaurarlo aquí" ;;
     "Made on %s: Homebrew apps become %s and Flathub packages, what has no equivalent is listed before restoring") I18N_MSG="Hecho en %s: las apps de Homebrew pasan a ser paquetes %s y de Flathub, lo que no tiene equivalente se lista antes de restaurar" ;;
     "Made on %s: what only exists there is listed before restoring") I18N_MSG="Hecho en %s: lo que solo existe allí se lista antes de restaurar" ;;
-    "A browser opens to sign in to Google. Come back here when it says Success.") I18N_MSG="Se abre un navegador para iniciar sesión en Google. Vuelve aquí cuando diga Success." ;;
     "a test file was saved, read back and removed") I18N_MSG="se guardó un archivo de prueba, se leyó de vuelta y se borró" ;;
     "Backups") I18N_MSG="Respaldos" ;;
     "before the first backup") I18N_MSG="antes del primer respaldo" ;;
@@ -532,6 +531,14 @@ i18n_catalog_es() {
     "This is the link of a file: open the folder in Drive and copy its link.") I18N_MSG="Es el enlace de un archivo: abre la carpeta en Drive y copia su enlace." ;;
     "using %s, fix it with: %s") I18N_MSG="usando %s, corrígelo con: %s" ;;
     "valid link · folder %s") I18N_MSG="enlace válido · carpeta %s" ;;
+    "A browser opens to sign in to Google. Come back here when it says Google Drive connected.") I18N_MSG="Se abre un navegador para iniciar sesión en Google. Vuelve aquí cuando diga Google Drive conectado." ;;
+    "Could not connect") I18N_MSG="No se pudo conectar" ;;
+    "dudu can reach the folder you chose and the rest of your Drive.") I18N_MSG="dudu accede a la carpeta que elegiste y al resto de tu Drive." ;;
+    "dudu sees only the files it creates in your Drive, nothing else.") I18N_MSG="dudu solo ve los archivos que él mismo crea en tu Drive, nada más." ;;
+    "Go back to the terminal and run %s again.") I18N_MSG="Vuelve a la terminal y ejecuta %s de nuevo." ;;
+    "Google Drive connected") I18N_MSG="Google Drive conectado" ;;
+    "You can close this tab and go back to the terminal: dudu carries on with the checks.") I18N_MSG="Puedes cerrar esta pestaña y volver a la terminal: dudu sigue con las verificaciones." ;;
+    "%s left") I18N_MSG="quedan %s" ;;
     *) return 1 ;;
   esac
 }

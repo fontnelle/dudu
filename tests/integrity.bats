@@ -167,11 +167,19 @@ R="$BATS_TEST_TMPDIR/remote"
 p() { case "\$1" in r:*) printf '%s' "\$R/\${1#r:}" ;; *) printf '%s' "\$1" ;; esac; }
 case "\$1" in
   copy) mkdir -p "\$(p "\$3")"; cp -R "\$(p "\$2")/." "\$(p "\$3")/" ;;
-  check) diff -r "\$2" "\$(p "\$3")" >/dev/null ;;
+  copyto)
+    echo "copyto \$2 \$3" >> "$BATS_TEST_TMPDIR/calls"
+    echo "2025/01/01 00:00:00 NOTICE:   10 KiB / 20 KiB, 50%, 5 KiB/s, ETA 2s" >&2
+    mkdir -p "\$(dirname "\$(p "\$3")")"; cp "\$(p "\$2")" "\$(p "\$3")" ;;
+  md5sum) [ -f "\$(p "\$2")" ] && cksum < "\$(p "\$2")" | tr ' ' - ;;
   rcat) cat > "\$(p "\$2")" ;;
   cat) cat "\$(p "\$2")" ;;
-  lsf) for d in "\$(p "\$3")"/*/; do [ -d "\$d" ] && basename "\$d" | sed 's|\$|/|'; done ;;
-  purge) rm -rf "\$(p "\$2")" ;;
+  lsf) for d in "\$(p "\$2")"/*; do
+         if [ -d "\$d" ]; then echo "\$(basename "\$d")/"; elif [ -f "\$d" ]; then basename "\$d"; fi
+       done ;;
+  delete) rm -rf "\$(p "\${@: -1}")" ;;
+  rmdir) [ ! -e "\$(p "\${@: -1}")" ] ;;
+  deletefile) rm -f "\$(p "\$2")" ;;
 esac
 STUB
   chmod +x "$BATS_TEST_TMPDIR/bin/rclone"
@@ -179,20 +187,77 @@ STUB
   DUDU_RCLONE_REMOTE="r:dudu"
 }
 
-@test "rclone: keeps the just-saved backup with keep=1 in dudu-<host>, round-trips and verifies" {
+@test "rclone: one archive per backup in dudu-<host>, keep=1 keeps the new one, round-trips and verifies" {
   rclone_stub
+  local r="$BATS_TEST_TMPDIR/remote/dudu/dudu-mac"
   make_bundle "$src" 2025-01-01_000000Z-aaaa
   make_bundle "$src" 2025-01-02_000000Z-aaaa
   DUDU_KEEP=1 gdrive_save "$src/2025-01-01_000000Z-aaaa" mac >/dev/null
   DUDU_KEEP=1 gdrive_save "$src/2025-01-02_000000Z-aaaa" mac >/dev/null
-  [ -d "$BATS_TEST_TMPDIR/remote/dudu/dudu-mac/2025-01-02_000000Z-aaaa" ]
-  [ ! -d "$BATS_TEST_TMPDIR/remote/dudu/dudu-mac/2025-01-01_000000Z-aaaa" ]
+  [ -f "$r/2025-01-02_000000Z-aaaa.tar.gz" ]
+  [ ! -e "$r/2025-01-01_000000Z-aaaa.tar.gz" ]
+  [ "$(cat "$r/latest")" = 2025-01-02_000000Z-aaaa ]
+  # Only the archive goes up, never the files one by one.
+  [ "$(grep -c copyto "$BATS_TEST_TMPDIR/calls")" -eq 2 ]
   out="$BATS_TEST_TMPDIR/out"; mkdir -p "$out"
   gdrive_load mac "$out"
   [ "$(cat "$out/git/list.txt")" = "data 2025-01-02_000000Z-aaaa" ]
-  echo x >> "$BATS_TEST_TMPDIR/remote/dudu/dudu-mac/2025-01-02_000000Z-aaaa/git/list.txt"
+  # A tampered archive is refused.
+  local t="$BATS_TEST_TMPDIR/t"; mkdir -p "$t"
+  tar -xzf "$r/2025-01-02_000000Z-aaaa.tar.gz" -C "$t"
+  echo x >> "$t/2025-01-02_000000Z-aaaa/git/list.txt"
+  tar -czf "$r/2025-01-02_000000Z-aaaa.tar.gz" -C "$t" 2025-01-02_000000Z-aaaa
   rm -rf "$out"; mkdir -p "$out"
   run ! gdrive_load mac "$out"
+}
+
+@test "rclone: backups saved as folders by older versions are read, and dropped by keep" {
+  rclone_stub
+  local r="$BATS_TEST_TMPDIR/remote/dudu/dudu-mac"
+  make_bundle "$src" 2025-01-01_000000Z-aaaa
+  mkdir -p "$r"
+  cp -R "$src/2025-01-01_000000Z-aaaa" "$r/"
+  echo 2025-01-01_000000Z-aaaa > "$r/latest"
+  out="$BATS_TEST_TMPDIR/out"; mkdir -p "$out"
+  gdrive_load mac "$out"
+  [ "$(cat "$out/git/list.txt")" = "data 2025-01-01_000000Z-aaaa" ]
+  # Saved again as an archive, the folder of the same backup goes.
+  gdrive_save "$src/2025-01-01_000000Z-aaaa" mac >/dev/null
+  [ ! -e "$r/2025-01-01_000000Z-aaaa" ]
+  [ -f "$r/2025-01-01_000000Z-aaaa.tar.gz" ]
+  cp -R "$src/2025-01-01_000000Z-aaaa" "$r/"
+  rm "$r/2025-01-01_000000Z-aaaa.tar.gz"
+  make_bundle "$src" 2025-01-02_000000Z-aaaa
+  DUDU_KEEP=1 gdrive_save "$src/2025-01-02_000000Z-aaaa" mac >/dev/null
+  [ ! -e "$r/2025-01-01_000000Z-aaaa" ]
+  [ -f "$r/2025-01-02_000000Z-aaaa.tar.gz" ]
+}
+
+@test "rclone: a damaged newest archive falls back to the one before" {
+  rclone_stub
+  local r="$BATS_TEST_TMPDIR/remote/dudu/dudu-mac"
+  make_bundle "$src" 2025-01-01_000000Z-aaaa
+  make_bundle "$src" 2025-01-02_000000Z-aaaa
+  gdrive_save "$src/2025-01-01_000000Z-aaaa" mac >/dev/null
+  gdrive_save "$src/2025-01-02_000000Z-aaaa" mac >/dev/null
+  echo broken > "$r/2025-01-02_000000Z-aaaa.tar.gz"
+  out="$BATS_TEST_TMPDIR/out"; mkdir -p "$out"
+  run gdrive_load mac "$out"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"The newest backup was damaged, using 2025-01-01_000000Z-aaaa"* ]] || false
+  [ "$(cat "$out/git/list.txt")" = "data 2025-01-01_000000Z-aaaa" ]
+}
+
+@test "rclone_upload reports percent and time left for the spinner" {
+  rclone_stub
+  echo x > "$BATS_TEST_TMPDIR/f"
+  DUDU_SPIN_STATUS="$BATS_TEST_TMPDIR/status" rclone_upload "$BATS_TEST_TMPDIR/f" r:dudu/f
+  [ "$(cat "$BATS_TEST_TMPDIR/status")" = "50 2s" ]
+  [ -f "$BATS_TEST_TMPDIR/remote/dudu/f" ]
+  SPIN_PCT=50 SPIN_ETA=2s
+  [ "$(spin_left)" = " · 50% · 2s left" ]
+  SPIN_PCT=""
+  [ -z "$(spin_left)" ]
 }
 
 @test "a second dudu stops while one is running, a stale lock is taken over" {
