@@ -3,7 +3,7 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
-## Unreleased · From a Mac to Linux
+## v0.4.0 · From a Mac to Linux
 
 ### Added
 
