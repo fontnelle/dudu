@@ -46,6 +46,7 @@ usage() {
   usage_row "dudu secrets" "$(t "Keys found in your config files")"
   usage_row "dudu schedule on [HH:MM]" "$(t "Back up every day (%s)" "off | status")"
   usage_row "dudu config" "$(t "Choose destination & what to include")"
+  usage_row "dudu config gdrive" "$(t "Connect Google Drive, step by step")"
   usage_row "dudu update" "$(t "Update dudu itself")"
   printf '  %s\n' "dudu completion zsh|bash|highlight"
   usage_row "" "$(t "Print shell completion or highlighting")"
@@ -74,6 +75,7 @@ main_menu() {
     usage
     return 0
   fi
+  update_prompt
   check_for_updates_bg
   while true; do
     MENU_FOOTER="↑↓  |  Enter  |  $(t "V Version")  |  $(t "Q Quit")"

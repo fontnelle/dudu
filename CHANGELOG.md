@@ -3,6 +3,16 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
+## Unreleased · Google Drive in four steps
+
+### Added
+
+- **`dudu config gdrive`: Google Drive without Drive for desktop, on macOS and Linux.** It walks through four steps: rclone (installed if missing), the folder, the Google sign-in and the checks. Checking Google Drive in `dudu config` runs the same steps when no Drive for desktop folder is found.
+- **The least access by default.** Pressing Enter makes a `dudu` folder in My Drive with `drive.file` access: dudu sees only the files it creates. Pasting a folder link uses that folder instead. Only `https://drive.google.com/drive/folders/…` links are taken; short links and look-alike sites are refused.
+- **Checks before the first backup.** A test file is written, read back and removed. rclone's config, which holds the Google token, is set to be readable only by you. dudu offers to turn on encryption when it is off, and lists the machines already backed up in the folder.
+- **dudu keeps its own rclone remote** (`dudu-gdrive`), so remotes you already have are never changed. If a step fails, nothing is saved and the previous settings stay.
+- **`dudu` asks to update when a new version is out**, as Oh My Zsh does. Enter updates and reopens dudu on the new version. `n` keeps the current one, and dudu does not ask again until the next release.
+
 ## v0.4.0 · From a Mac to Linux
 
 ### Added

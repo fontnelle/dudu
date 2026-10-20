@@ -69,16 +69,16 @@ The restore runs in order: Homebrew first (which brings pyenv, go, fonts...), th
 
 ## From a Mac to Linux
 
-A backup made on a Mac restores on Linux too, as far as Linux allows. Google Drive is the bridge: the Mac writes to it with Drive for desktop, Linux reads it through `rclone`.
+A backup made on a Mac restores on Linux too, as far as Linux allows. Google Drive is the bridge: both machines reach it through `rclone`, set up by `dudu config gdrive`.
 
 ```bash
-# On the Mac: add Google Drive to the destinations, then back up
-dudu config
+# On the Mac: connect Google Drive, then back up
+dudu config gdrive
 dudu backup
 
 # On Linux
 curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/main/install.sh | bash
-dudu config                     # check Google Drive: dudu installs rclone and signs you in
+dudu config gdrive              # Enter: the same dudu folder the Mac writes to
 dudu restore --dry-run --from <mac name>
 dudu restore --from <mac name>
 ```
@@ -95,8 +95,17 @@ The names that differ are in [`lib/data/brew-linux.map`](lib/data/brew-linux.map
 | --- | --- | --- |
 | Local folder | `~/dudu-backups` or any folder | Default |
 | iCloud Drive | `iCloud Drive/dudu` | macOS |
-| Google Drive | `Google Drive/My Drive/dudu` | Drive for desktop on macOS. On Linux, a synced folder (`dudu config set gdrive_path ~/GoogleDrive/dudu`) or `rclone` (`dudu config set rclone_remote gdrive:dudu`) |
+| Google Drive | `My Drive/dudu` | `dudu config gdrive`, on macOS and Linux, in 4 steps (see below). Drive for desktop is used when it is installed. A synced folder: `dudu config set gdrive_path <folder>` |
 | Apple Notes | the note `dudu backup - <machine>` in the `dudu` folder | macOS. A readable summary plus the whole backup embedded. The first save asks for permission to control Notes |
+
+**`dudu config gdrive`** saves straight to Google Drive, without Drive for desktop:
+
+1. **rclone**: installs it (`brew install rclone`, or apt/dnf/pacman) if needed.
+2. **Folder**: press Enter for a `dudu` folder in My Drive. dudu then only sees the files it creates (`drive.file` access), nothing else of your Drive. Or paste the link of a folder (`https://drive.google.com/drive/folders/…`). Any other link is refused, including short links and look-alike sites. A pasted folder needs access to the whole Drive.
+3. **Google account**: a browser opens to sign in once. dudu uses an rclone remote of its own (`dudu-gdrive`), so your other remotes are left alone.
+4. **Checks**: a test file is written, read back and removed. rclone's config, which holds the Google token, is made readable only by you. If encryption is off, dudu offers to turn it on, and it lists the machines already backed up there.
+
+If a step fails, nothing is saved and the previous settings stay. A Mac that saves through Drive for desktop: on Linux, paste the link of its `dudu` folder, which dudu did not create and cannot see with `drive.file`.
 
 Pick **one or more** with `dudu config` or `dudu config set destination icloud,notes`. Each backup goes to all of them, and one failing does not stop the others. `restore` and `status` read the newest backup found across them. Folders keep the latest 5 backups per machine (`dudu config set keep 10`).
 

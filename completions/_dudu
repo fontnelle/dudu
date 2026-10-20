@@ -64,7 +64,7 @@ _dudu() {
       _arguments "--dry-run[$d[dry]]" "--only[$d[only]]:collectors:_values -s , collector $collectors" \
         "--from[$d[from]]:host:" "--file[$d[file]]:folder:_files -/" "--yes[$d[yes]]" ;;
     config)
-      _values 'action' show set ;;
+      _values 'action' show gdrive set ;;
     schedule)
       _values 'action' on off status ;;
     completion)

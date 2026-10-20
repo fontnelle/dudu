@@ -15,7 +15,7 @@ config_pick_destination() {
     if "${d}_available" 2>/dev/null; then
       CL_DETAIL[i]=$(tilde "$("${d}_where" 2>/dev/null)")
     elif [ "$d" = gdrive ]; then
-      CL_DETAIL[i]=$(t "not found, select to set its folder")
+      CL_DETAIL[i]=$(t "select to connect, a browser opens")
     else
       CL_DETAIL[i]=$(t "not available on this machine")
       CL_LOCKED[i]=1
@@ -42,20 +42,9 @@ config_pick_destination() {
     read -r path
     DUDU_PATH=$(expand_home "${path:-${DUDU_PATH:-$HOME/dudu-backups}}")
   fi
-  if list_has "$chosen" gdrive && ! gdrive_available 2>/dev/null && ! is_macos && config_rclone_setup; then
-    :
-  elif list_has "$chosen" gdrive && ! gdrive_available 2>/dev/null; then
-    if has rclone; then
-      printf '%s ' "$(t "Google Drive folder not found. rclone remote (e.g. gdrive:dudu), or a folder path:")"
-    else
-      printf '%s ' "$(t "Google Drive folder not found. Path of a synced Google Drive folder:")"
-    fi
-    read -r path
-    case "$path" in
-      "") warn "$(t "No Google Drive folder given, leaving Google Drive out")"; chosen=$(printf '%s' "$chosen" | tr ',' '\n' | grep -vx gdrive | paste -sd, -) ;;
-      *:*) DUDU_RCLONE_REMOTE=$path; DUDU_GDRIVE_PATH="" ;;
-      *) DUDU_GDRIVE_PATH=$(expand_home "$path"); DUDU_RCLONE_REMOTE="" ;;
-    esac
+  if list_has "$chosen" gdrive && ! gdrive_available 2>/dev/null && ! gdrive_setup; then
+    warn "$(t "Leaving Google Drive out. Try again with %s, or use a synced folder: %s" "dudu config gdrive" "dudu config set gdrive_path <folder>")"
+    chosen=$(printf '%s' "$chosen" | tr ',' '\n' | grep -vx gdrive | paste -sd, -)
     [ -n "$chosen" ] || return 1
   fi
 
@@ -67,35 +56,6 @@ config_pick_destination() {
     printf '    %s %s%s%s\n' "$(pad "$(dest_label "$d")" 14)" "$GRAY" "$(tilde "$("${d}_where" 2>/dev/null)")" "$NC"
   done
   list_has "$chosen" notes && dim "  $(t "The first save to Notes asks permission to control Notes, allow it.")"
-  return 0
-}
-
-# Linux has no Drive for desktop: Google Drive goes through rclone, set up here with the
-# user's say. Sets DUDU_RCLONE_REMOTE to the same "dudu" folder a Mac's Drive for desktop
-# writes to. Returns 1 to ask for a folder instead.
-config_rclone_setup() {
-  local pm remote hosts
-  if ! has rclone; then
-    pm=$(linux_pm)
-    [ -n "$pm" ] || return 1
-    confirm "$(t "Google Drive on Linux goes through rclone. Install it now?")" || return 1
-    syspkgs_install "$pm" rclone || { warn "$(t "could not install %s" rclone)"; return 1; }
-  fi
-  # An existing Google Drive remote ("gdrive:  drive"), else a new one.
-  remote=$(rclone listremotes --long 2>/dev/null | awk '$2 == "drive" { sub(/:$/, "", $1); print $1; exit }')
-  if [ -z "$remote" ]; then
-    confirm "$(t "Connect your Google account to rclone now? A browser opens to sign in.")" || return 1
-    rclone config create gdrive drive scope=drive || { warn "$(t "rclone could not connect to Google Drive")"; return 1; }
-    remote=gdrive
-  fi
-  DUDU_RCLONE_REMOTE="$remote:dudu"
-  DUDU_GDRIVE_PATH=""
-  hosts=$(rclone lsf --dirs-only "$DUDU_RCLONE_REMOTE" 2>/dev/null | tr -d '/' | paste -sd, - | sed 's/,/, /g')
-  if [ -n "$hosts" ]; then
-    ok "$(t "Backups found in Google Drive: %s" "$hosts")"
-  else
-    dim "  $(t "No backups in %s yet: back up on your Mac with Google Drive checked in dudu config." "$DUDU_RCLONE_REMOTE")"
-  fi
   return 0
 }
 
@@ -256,6 +216,12 @@ cmd_config() {
   [ "${1:-}" = show ] || dudu_lock || return 1
   case "${1:-}" in
     show) config_show ;;
+    gdrive)
+      gdrive_setup || return 1
+      list_has "$DUDU_DESTINATION" gdrive || DUDU_DESTINATION=${DUDU_DESTINATION:+$DUDU_DESTINATION,}gdrive
+      config_save
+      dim "  $(t "Each backup goes to: %s" "$(dest_labels)")"
+      ;;
     set)
       [ $# -eq 3 ] || die "$(t "Usage: dudu config set <%s> <value>" "destination|path|gdrive_path|include|exclude|keep|encrypt|language|rclone_remote")"
       case "$2" in
@@ -296,6 +262,6 @@ cmd_config() {
         config_show
       fi
       ;;
-    *) die "$(t "Usage: %s" "dudu config [show|set <key> <value>]")" ;;
+    *) die "$(t "Usage: %s" "dudu config [show|gdrive|set <key> <value>]")" ;;
   esac
 }

@@ -69,16 +69,16 @@ La restauración sigue un orden: primero Homebrew (que trae pyenv, go, fuentes..
 
 ## De Mac a Linux
 
-Un respaldo hecho en Mac también se restaura en Linux, hasta donde Linux lo permite. El puente es Google Drive: la Mac escribe en él con Drive para escritorio, y Linux lo lee con `rclone`.
+Un respaldo hecho en Mac también se restaura en Linux, hasta donde Linux lo permite. El puente es Google Drive: las dos máquinas acceden a él con `rclone`, configurado con `dudu config gdrive`.
 
 ```bash
-# En la Mac: agrega Google Drive a los destinos y haz el respaldo
-dudu config
+# En la Mac: conecta Google Drive y haz el respaldo
+dudu config gdrive
 dudu backup
 
 # En Linux
 curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/main/install.sh | bash
-dudu config                     # marca Google Drive: dudu instala rclone e inicia sesión
+dudu config gdrive              # Enter: la misma carpeta dudu en la que escribe la Mac
 dudu restore --dry-run --from <nombre de la mac>
 dudu restore --from <nombre de la mac>
 ```
@@ -95,8 +95,17 @@ Los nombres que cambian están en [`lib/data/brew-linux.map`](lib/data/brew-linu
 | --- | --- | --- |
 | Carpeta local | `~/dudu-backups` o cualquier carpeta | Predeterminado |
 | iCloud Drive | `iCloud Drive/dudu` | macOS |
-| Google Drive | `Google Drive/My Drive/dudu` | Drive para escritorio en macOS. En Linux, una carpeta sincronizada (`dudu config set gdrive_path ~/GoogleDrive/dudu`) o `rclone` (`dudu config set rclone_remote gdrive:dudu`) |
+| Google Drive | `Mi unidad/dudu` | `dudu config gdrive`, en macOS y Linux, en 4 pasos (ver abajo). Drive para escritorio se usa si está instalado. Carpeta sincronizada: `dudu config set gdrive_path <carpeta>` |
 | Apple Notes | la nota `dudu backup - <máquina>` en la carpeta `dudu` | macOS. Un resumen legible más todo el respaldo incrustado. El primer guardado pide permiso para controlar Notas |
+
+**`dudu config gdrive`** guarda directo en Google Drive, sin Drive para escritorio:
+
+1. **rclone**: lo instala si falta (`brew install rclone`, o apt/dnf/pacman).
+2. **Carpeta**: Enter crea una carpeta `dudu` en Mi unidad. Así dudu solo ve los archivos que él mismo crea (acceso `drive.file`), nada más de tu Drive. O pega el enlace de una carpeta (`https://drive.google.com/drive/folders/…`). Cualquier otro enlace se rechaza, incluidos acortadores y sitios parecidos. Una carpeta pegada necesita acceso a todo el Drive.
+3. **Cuenta de Google**: se abre un navegador para iniciar sesión una vez. dudu usa un remote propio de rclone (`dudu-gdrive`), así que tus otros remotes no se tocan.
+4. **Verificaciones**: se escribe un archivo de prueba, se lee de vuelta y se borra. La configuración de rclone, donde está el token de Google, queda legible solo para ti. Si el cifrado está apagado, dudu ofrece encenderlo. También lista las máquinas que ya tienen respaldo ahí.
+
+Si un paso falla, no se guarda nada y la configuración anterior sigue vigente. Si la Mac guarda con Drive para escritorio: en Linux, pega el enlace de su carpeta `dudu`. Como no la creó dudu, no se ve con `drive.file`.
 
 Elige **uno o más** con `dudu config` o `dudu config set destination icloud,notes`. Cada respaldo va a todos, y si uno falla los demás siguen. `restore` y `status` leen el respaldo más reciente que encuentren entre ellos. Las carpetas conservan los últimos 5 respaldos por máquina (`dudu config set keep 10`).
 

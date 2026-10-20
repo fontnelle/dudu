@@ -28,7 +28,8 @@ gdrive_where() {
 
 gdrive_save() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then
-    local remote="${DUDU_RCLONE_REMOTE%/}/$2" stamp d n=0
+    local remote stamp d n=0
+    remote=$(rclone_join "$DUDU_RCLONE_REMOTE" "$2")
     stamp=$(basename "$1")
     rclone copy "$1" "$remote/$stamp" || return 1
     # Checked against the local bundle before "latest" moves and anything old is removed.
@@ -45,13 +46,14 @@ gdrive_save() {
     return 0
   fi
   local root
-  root=$(gdrive_root) || { err "$(t "Google Drive folder not found. Set it with: %s" "dudu config")"; return 1; }
+  root=$(gdrive_root) || { err "$(t "Google Drive folder not found. Set it with: %s" "dudu config gdrive")"; return 1; }
   folder_save "$root" "$1" "$2"
 }
 
 gdrive_load() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then
-    local remote="${DUDU_RCLONE_REMOTE%/}/$1" latest stamp first=""
+    local remote latest stamp first=""
+    remote=$(rclone_join "$DUDU_RCLONE_REMOTE" "$1")
     latest=$(rclone cat "$remote/latest" 2>/dev/null | head -1 | tr -d '\r')
     valid_stamp "$latest" || latest=""
     # "latest" first, then the others newest first: a damaged copy falls back to the next.
