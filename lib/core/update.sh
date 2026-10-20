@@ -2,6 +2,7 @@
 # Version check (cached, at most once a day, in background) and self-update.
 
 DUDU_LATEST_CACHE="$DUDU_CACHE_DIR/latest_version"
+DUDU_UPDATE_DECLINED="$DUDU_CACHE_DIR/update_declined"
 
 # True when version $1 is newer than $2. A pre-release (1.2.0-rc1) is older than its
 # release (1.2.0), and pre-releases compare by their suffix.
@@ -62,6 +63,50 @@ update_notice() {
   if [ -n "$latest" ] && version_gt "$latest" "$VERSION"; then
     printf '\n%s%s %s%s%s\n' "$NC" "$(t "Update %s available, run" "$latest")" "$GREEN" "$(update_command)" "$NC"
   fi
+}
+
+# The newer release found by the last check, if there is one.
+update_available() {
+  local latest
+  latest=$(cat "$DUDU_LATEST_CACHE" 2>/dev/null)
+  [ -n "$latest" ] && version_gt "$latest" "$VERSION" && printf '%s' "$latest"
+}
+
+# Starts dudu again from where the update put it: Homebrew removes this version's folder.
+update_restart() {
+  DUDU_JUST_UPDATED=1 exec "$(command -v dudu 2>/dev/null || printf '%s/dudu' "$DUDU_ROOT")"
+}
+
+# On opening the menu with a newer release out, asks to update first, as Oh My Zsh does.
+# Enter or y updates and restarts dudu on the new version; n is remembered for that version
+# (the menu still shows the notice).
+update_prompt() {
+  local latest answer
+  [ -z "${DUDU_JUST_UPDATED:-}" ] || return 0
+  latest=$(update_available) || return 0
+  [ "$(cat "$DUDU_UPDATE_DECLINED" 2>/dev/null)" = "$latest" ] && return 0
+  show_banner
+  echo
+  printf '%s %s%s%s ' "$(t "dudu %s is out, you have %s. Update now?" "$latest" "$VERSION")" "$GRAY" "$(t "[Y/n]")" "$NC"
+  while :; do
+    # Ctrl-D (end of input) is a no, never a yes.
+    if [ -t 0 ]; then IFS= read -rsn1 answer || answer=n; else IFS= read -r answer || answer=n; fi
+    case "$answer" in
+      ''|y|Y|s|S) printf '%s%s%s\n\n' "$GREEN" "$(t "yes")" "$NC"; break ;;
+      n|N|q|Q|$'\e')
+        printf '%s%s%s\n' "$GRAY" "$(t "no")" "$NC"
+        printf '%s\n' "$latest" > "$DUDU_UPDATE_DECLINED"
+        dim "$(t "Update later with: %s" "$(update_command)")"
+        sleep 1
+        return 0 ;;
+    esac
+  done
+  if cmd_update; then
+    ok "$(t "Updated to %s" "$latest")"
+    update_restart
+  fi
+  err "$(t "The update did not finish, opening dudu %s" "$VERSION")"
+  sleep 2
 }
 
 cmd_update() {
