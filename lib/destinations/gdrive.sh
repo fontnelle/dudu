@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Google Drive: the Drive for desktop folder on macOS, a mounted folder or rclone on Linux.
-# config: gdrive_path=<folder> overrides detection; rclone_remote=<remote:path> uses rclone.
+# Google Drive: straight through rclone (dudu config gdrive), or the Drive for desktop folder.
+# config: rclone_remote=<remote:path> uses rclone; gdrive_path=<folder> overrides detection.
 
 gdrive_root() {
-  if [ -n "$DUDU_GDRIVE_PATH" ]; then printf '%s' "$DUDU_GDRIVE_PATH"; return 0; fi
+  # A folder set by hand counts only when it is a full path whose parent exists.
+  if [ -n "$DUDU_GDRIVE_PATH" ] && ! folder_path_error "$DUDU_GDRIVE_PATH" >/dev/null &&
+     [ -d "$(dirname "$DUDU_GDRIVE_PATH")" ]; then
+    printf '%s' "$DUDU_GDRIVE_PATH"
+    return 0
+  fi
   local base d
   for base in "$HOME"/Library/CloudStorage/GoogleDrive-*; do
     [ -d "$base" ] || continue
@@ -26,10 +31,29 @@ gdrive_where() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then printf 'rclone %s' "$DUDU_RCLONE_REMOTE"; else gdrive_root; fi
 }
 
+# Through rclone each machine has its folder "dudu-<host>", made by dudu, so it stays visible
+# with drive.file access. Folders named just <host> (Drive for desktop, dudu 0.4 and 0.5) are
+# read too.
+gdrive_host_dir() { printf 'dudu-%s' "$1"; }
+
+# The machines with a backup under <remote>: the folders that hold a "latest" file.
+rclone_hosts() { # <remote>
+  rclone lsf -R --max-depth 2 --files-only --include '/*/latest' "$1" 2>/dev/null |
+    sed -n 's|^\([^/]*\)/latest$|\1|p' | sed 's/^dudu-//' | grep -E '^[A-Za-z0-9._-]+$' | LC_ALL=C sort -u
+}
+
+# The web address of <host>'s backup folder under <remote>, or nothing.
+gdrive_folder_link() { # <remote> <host>
+  local id
+  id=$(rclone lsjson --stat "$(rclone_join "$1" "$(gdrive_host_dir "$2")")" 2>/dev/null |
+       sed -n 's/.*"ID":"\([A-Za-z0-9_-]*\)".*/\1/p' | head -1)
+  [ -n "$id" ] && printf 'https://drive.google.com/drive/folders/%s' "$id"
+}
+
 gdrive_save() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then
     local remote stamp d n=0
-    remote=$(rclone_join "$DUDU_RCLONE_REMOTE" "$2")
+    remote=$(rclone_join "$DUDU_RCLONE_REMOTE" "$(gdrive_host_dir "$2")")
     stamp=$(basename "$1")
     rclone copy "$1" "$remote/$stamp" || return 1
     # Checked against the local bundle before "latest" moves and anything old is removed.
@@ -50,22 +74,30 @@ gdrive_save() {
   folder_save "$root" "$1" "$2"
 }
 
+# Loads the newest backup in one machine folder of rclone; a damaged copy falls back to the
+# next one, "latest" first and then the others newest first.
+gdrive_rclone_load() { # <remote machine folder> <out>
+  local latest stamp first=""
+  latest=$(rclone cat "$1/latest" 2>/dev/null | head -1 | tr -d '\r')
+  valid_stamp "$latest" || latest=""
+  for stamp in $latest $(rclone lsf --dirs-only "$1" 2>/dev/null | tr -d '/' | grep -E "$STAMP_RE" |
+                         LC_ALL=C sort -r | grep -vxF -- "${latest:-none}"); do
+    [ -z "$first" ] && first=$stamp
+    rm -rf "${2:?}"/* "$2"/.[!.]* 2>/dev/null
+    if rclone copy "$1/$stamp" "$2" && bundle_verify "$2"; then
+      [ "$stamp" != "$first" ] && warn "$(t "The newest backup was damaged, using %s" "$stamp")" >&2
+      return 0
+    fi
+    printf 'damaged backup skipped: %s/%s\n' "$1" "$stamp" >> "$DUDU_LOG"
+  done
+  return 1
+}
+
 gdrive_load() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then
-    local remote latest stamp first=""
-    remote=$(rclone_join "$DUDU_RCLONE_REMOTE" "$1")
-    latest=$(rclone cat "$remote/latest" 2>/dev/null | head -1 | tr -d '\r')
-    valid_stamp "$latest" || latest=""
-    # "latest" first, then the others newest first: a damaged copy falls back to the next.
-    for stamp in $latest $(rclone lsf --dirs-only "$remote" 2>/dev/null | tr -d '/' | grep -E "$STAMP_RE" |
-                           LC_ALL=C sort -r | grep -vxF -- "${latest:-none}"); do
-      [ -z "$first" ] && first=$stamp
-      rm -rf "${2:?}"/* "$2"/.[!.]* 2>/dev/null
-      if rclone copy "$remote/$stamp" "$2" && bundle_verify "$2"; then
-        [ "$stamp" != "$first" ] && warn "$(t "The newest backup was damaged, using %s" "$stamp")" >&2
-        return 0
-      fi
-      printf 'damaged backup skipped: %s/%s\n' "$remote" "$stamp" >> "$DUDU_LOG"
+    local d
+    for d in "$(gdrive_host_dir "$1")" "$1"; do
+      gdrive_rclone_load "$(rclone_join "$DUDU_RCLONE_REMOTE" "$d")" "$2" && return 0
     done
     return 1
   fi
@@ -74,7 +106,7 @@ gdrive_load() {
 
 gdrive_hosts() {
   if [ -n "$DUDU_RCLONE_REMOTE" ]; then
-    rclone lsf --dirs-only "${DUDU_RCLONE_REMOTE%/}" 2>/dev/null | tr -d '/'
+    rclone_hosts "$DUDU_RCLONE_REMOTE"
     return 0
   fi
   local root

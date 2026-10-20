@@ -28,12 +28,14 @@ case "$1 ${2:-}" in
   "rcat "*) cat > "$FAKE/obj" ;;
   "cat "*) if [ -n "${FAKE_BAD_CAT:-}" ]; then echo tampered; else cat "$FAKE/obj"; fi ;;
   "deletefile "*) rm -f "$FAKE/obj" ;;
-  "lsf "*) printf '%b' "${FAKE_HOSTS:-}" ;;
+  "lsf "*) case "$*" in *--include*) printf '%b' "${FAKE_LATEST:-}" ;; *) printf '%b' "${FAKE_HOSTS:-}" ;; esac ;;
+  "lsjson "*) [ -n "${FAKE_NO_ID:-}" ] || echo '{"Path":"x","Name":"x","IsDir":true,"ID":"FOLDERID12345"}' ;;
 esac
 EOF
   chmod +x "$BATS_TEST_TMPDIR/bin/rclone"
   export FAKE PATH="$BATS_TEST_TMPDIR/bin:$PATH"
   DUDU_ENCRYPT=off
+  backup_host() { echo Mac-1; }
 }
 
 # gdrive_setup, then the remote it chose.
@@ -61,43 +63,70 @@ setup_and_show() {
   [ "$(rclone_join dudu-gdrive:dudu/ host)" = dudu-gdrive:dudu/host ]
 }
 
-@test "Enter: a dudu folder with access only to what dudu creates" {
+@test "Enter connects the account: dudu-<host> in My Drive, access only to what dudu creates" {
   run setup_and_show <<< $'\nn'
   [ "$status" -eq 0 ]
-  [[ "$output" == *"remote=dudu-gdrive:dudu"* ]] || false
-  grep -q 'config create dudu-gdrive drive scope=drive.file$' "$FAKE/calls"
-  grep -q 'rcat dudu-gdrive:dudu/.dudu-check' "$FAKE/calls"
-  grep -q 'deletefile dudu-gdrive:dudu/.dudu-check' "$FAKE/calls"
-}
-
-@test "a pasted link: that folder, with access to the Drive" {
-  run setup_and_show <<< $'https://drive.google.com/drive/folders/1AbCdEfGhIjK\nn'
-  [ "$status" -eq 0 ]
   grep -qx 'remote=dudu-gdrive:' <<< "$output"
-  grep -q 'config create dudu-gdrive drive scope=drive root_folder_id=1AbCdEfGhIjK' "$FAKE/calls"
-  grep -q 'rcat dudu-gdrive:.dudu-check' "$FAKE/calls"
+  grep -q 'config create dudu-gdrive drive scope=drive.file$' "$FAKE/calls"
+  grep -q 'rcat dudu-gdrive:dudu-Mac-1/.dudu-check' "$FAKE/calls"
+  grep -q 'deletefile dudu-gdrive:dudu-Mac-1/.dudu-check' "$FAKE/calls"
+  # Where the backups go, as a link to open in the browser.
+  [[ "$output" == *"https://drive.google.com/drive/folders/FOLDERID12345"* ]] || false
 }
 
-@test "a wrong link is asked again, three times at most" {
-  run setup_and_show <<< $'https://bit.ly/x\nhttps://evil.io/a\nnope'
+@test "1 is the same as Enter" {
+  run setup_and_show <<< $'1\nn'
+  [ "$status" -eq 0 ]
+  grep -q 'scope=drive.file$' "$FAKE/calls"
+}
+
+@test "2 and a link: that folder, with access to the Drive" {
+  run setup_and_show <<< $'2\n https://drive.google.com/drive/folders/1RBB6DaMcICS9hhEKQ2fv9TJZ_1fz_9cm?hl=pt-br \nn'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"valid link · folder 1RBB6DaMcICS9hhEKQ2fv9TJZ_1fz_9cm"* ]] || false
+  grep -qx 'remote=dudu-gdrive:' <<< "$output"
+  grep -q 'config create dudu-gdrive drive scope=drive root_folder_id=1RBB6DaMcICS9hhEKQ2fv9TJZ_1fz_9cm' "$FAKE/calls"
+  grep -q 'rcat dudu-gdrive:dudu-Mac-1/.dudu-check' "$FAKE/calls"
+}
+
+@test "a wrong link says why, and is asked again three times at most" {
+  run setup_and_show <<< $'2\nhttps://drive.google.com/file/d/1AbCdEfGhIjK/view\nhttps://bit.ly/x\nhttp://drive.google.com/drive/folders/1AbCdEfGhIjK'
   [ "$status" -ne 0 ]
-  [ "$(grep -c 'Not a Google Drive folder link' <<< "$output")" -eq 3 ]
+  [[ "$output" == *"This is the link of a file"* ]] || false
+  [[ "$output" == *"This is not a Google Drive link (bit.ly)"* ]] || false
+  [[ "$output" == *"The link starts with https://drive.google.com/"* ]] || false
   run ! grep -q 'config create' "$FAKE/calls"
+}
+
+@test "gdrive_link_problem names the problem" {
+  [ "$(gdrive_link_problem '')" = "Nothing was pasted." ]
+  [[ "$(gdrive_link_problem 'https://docs.google.com/document/d/1AbCdEfGhIjK/edit')" == *"link of a document"* ]] || false
+  [[ "$(gdrive_link_problem 'https://drive.google.com/drive/my-drive')" == *"not the link of a folder"* ]] || false
+  [[ "$(gdrive_link_problem 'https://drive.google.com/drive/folders/1Ab Cd')" == *"has spaces"* ]] || false
+  run gdrive_link_problem 'https://drive.google.com/drive/folders/1AbCdEfGhIjK?usp=sharing'
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
 }
 
 @test "a remote for another folder is made again" {
   run setup_and_show <<< $'\nn'
-  run setup_and_show <<< $'https://drive.google.com/drive/folders/1AbCdEfGhIjK\nn'
+  run setup_and_show <<< $'2\nhttps://drive.google.com/drive/folders/1AbCdEfGhIjK\nn'
   [ "$status" -eq 0 ]
   grep -q 'config delete dudu-gdrive' "$FAKE/calls"
   [ "$(grep -c 'config create' "$FAKE/calls")" -eq 2 ]
 }
 
-@test "the same folder again keeps the sign-in" {
+@test "the same choice again keeps the sign-in" {
   run setup_and_show <<< $'\nn'
   run setup_and_show <<< $'\nn'
   [ "$status" -eq 0 ]
   [ "$(grep -c 'config create' "$FAKE/calls")" -eq 1 ]
+}
+
+@test "q cancels at the choice, nothing is set up" {
+  run setup_and_show <<< 'q'
+  [ "$status" -ne 0 ]
+  run ! grep -q 'config create' "$FAKE/calls"
 }
 
 @test "a test file that does not read back stops the setup" {
@@ -124,10 +153,23 @@ setup_and_show() {
 }
 
 @test "encryption off is pointed out, and the machines already there are listed" {
-  export FAKE_HOSTS='MacBook-Pro/\nother-pc/\n'
+  export FAKE_LATEST='dudu-MacBook-Pro/latest\nother-pc/latest\n'
   run setup_and_show <<< $'\nn'
   [[ "$output" == *"Encryption"*"off"* ]] || false
   [[ "$output" == *"MacBook-Pro, other-pc"* ]] || false
+}
+
+@test "rclone_hosts strips the dudu- prefix and keeps old folders" {
+  export FAKE_LATEST='dudu-Mac-1/latest\nlinux-pc/latest\ndudu-Mac-1/latest\n'
+  run rclone_hosts dudu-gdrive:
+  [ "$output" = $'Mac-1\nlinux-pc' ]
+}
+
+@test "gdrive saves under dudu-<host>, and loads dudu-<host> or an older <host> folder" {
+  DUDU_RCLONE_REMOTE=dudu-gdrive:
+  gdrive_rclone_load() { echo "LOAD $1"; return 1; }
+  run gdrive_load Mac-1 "$BATS_TEST_TMPDIR/out"
+  [ "$output" = $'LOAD dudu-gdrive:dudu-Mac-1\nLOAD dudu-gdrive:Mac-1' ]
 }
 
 @test "dudu config gdrive adds Google Drive to the destinations" {
@@ -136,5 +178,5 @@ setup_and_show() {
   run dudu config gdrive <<< $'\nn'
   [ "$status" -eq 0 ]
   grep -qx 'destination=local,gdrive' "$DUDU_CONFIG_FILE"
-  grep -qx 'rclone_remote=dudu-gdrive:dudu' "$DUDU_CONFIG_FILE"
+  grep -qx 'rclone_remote=dudu-gdrive:' "$DUDU_CONFIG_FILE"
 }

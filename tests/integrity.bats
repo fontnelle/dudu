@@ -179,18 +179,18 @@ STUB
   DUDU_RCLONE_REMOTE="r:dudu"
 }
 
-@test "rclone: keeps the just-saved backup with keep=1, round-trips and verifies" {
+@test "rclone: keeps the just-saved backup with keep=1 in dudu-<host>, round-trips and verifies" {
   rclone_stub
   make_bundle "$src" 2025-01-01_000000Z-aaaa
   make_bundle "$src" 2025-01-02_000000Z-aaaa
   DUDU_KEEP=1 gdrive_save "$src/2025-01-01_000000Z-aaaa" mac >/dev/null
   DUDU_KEEP=1 gdrive_save "$src/2025-01-02_000000Z-aaaa" mac >/dev/null
-  [ -d "$BATS_TEST_TMPDIR/remote/dudu/mac/2025-01-02_000000Z-aaaa" ]
-  [ ! -d "$BATS_TEST_TMPDIR/remote/dudu/mac/2025-01-01_000000Z-aaaa" ]
+  [ -d "$BATS_TEST_TMPDIR/remote/dudu/dudu-mac/2025-01-02_000000Z-aaaa" ]
+  [ ! -d "$BATS_TEST_TMPDIR/remote/dudu/dudu-mac/2025-01-01_000000Z-aaaa" ]
   out="$BATS_TEST_TMPDIR/out"; mkdir -p "$out"
   gdrive_load mac "$out"
   [ "$(cat "$out/git/list.txt")" = "data 2025-01-02_000000Z-aaaa" ]
-  echo x >> "$BATS_TEST_TMPDIR/remote/dudu/mac/2025-01-02_000000Z-aaaa/git/list.txt"
+  echo x >> "$BATS_TEST_TMPDIR/remote/dudu/dudu-mac/2025-01-02_000000Z-aaaa/git/list.txt"
   rm -rf "$out"; mkdir -p "$out"
   run ! gdrive_load mac "$out"
 }

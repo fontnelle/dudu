@@ -341,7 +341,9 @@ dest_saved_where() { # <dest> <stamp>
     notes) printf 'Notes › %s › %s%s' "$NOTES_FOLDER" "$NOTES_PREFIX" "$DUDU_BACKUP_HOST" ;;
     gdrive)
       if [ -n "$DUDU_RCLONE_REMOTE" ]; then
-        printf '%s/%s/%s' "${DUDU_RCLONE_REMOTE%/}" "$DUDU_BACKUP_HOST" "$2"
+        # The folder's web address, to open it in the browser; the rclone path otherwise.
+        gdrive_folder_link "$DUDU_RCLONE_REMOTE" "$DUDU_BACKUP_HOST" ||
+          printf '%s/%s' "$(rclone_join "$DUDU_RCLONE_REMOTE" "$(gdrive_host_dir "$DUDU_BACKUP_HOST")")" "$2"
       else
         tilde "$(dest_saved_dir gdrive "$2")"
       fi

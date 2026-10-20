@@ -3,6 +3,19 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
+## Unreleased · Google Drive, clearly
+
+### Changed
+
+- **Google Drive asks one clear question:** 1, connect my Google account, or 2, paste the link of a folder. Connecting makes the folder `dudu-<machine>` in My Drive by itself. A pasted folder gets a `dudu-<machine>` folder inside it.
+- **A wrong link says why:** the link of a file or a document instead of a folder, another site, a short link, spaces, or no https. Each try shows ✓ or ✗ on its own line.
+- **The folder's link is shown** at the end of the setup and after each backup, to open it in the browser.
+- **The Google Drive steps come first** in `dudu config`, before the local folder question. That question now says it wants a folder on this computer.
+
+### Fixed
+
+- **A link or a word typed as a folder no longer becomes a folder.** A Google Drive link pasted at the local folder question was saved as `path=`. Backups then went to a folder named `https:` wherever dudu ran. `gdrive_path=q` did the same, and it also kept the Google Drive steps from starting. Folder settings must now be full paths (`/…` or `~/…`). One already in the config that is not is ignored, with a warning, and backups are never written under a relative folder.
+
 ## v0.5.0 · Google Drive in four steps
 
 ### Added

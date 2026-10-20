@@ -13,6 +13,8 @@ folder_free_kb() { df -Pk "$1" 2>/dev/null | awk 'NR == 2 { print $4 }'; }
 # and never to a partial backup (--only without data for the other tools).
 folder_save() { # <root> <bundle> <host>
   local dir="$1/$3" stamp tmp need free
+  # Never a relative root: it would be resolved against wherever dudu runs.
+  case "$1" in /*) ;; *) err "$(t "%s is not a full path: start it with / or ~/" "$(safe_text "$1")")"; return 1 ;; esac
   stamp=$(basename "$2")
   valid_stamp "$stamp" || return 1
   mkdir -p "$dir" || return 1

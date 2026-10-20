@@ -78,7 +78,7 @@ dudu backup
 
 # No Linux
 curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/main/install.sh | bash
-dudu config gdrive              # Enter: a mesma pasta dudu em que o Mac grava
+dudu config gdrive              # 1: a mesma conta Google, ele lista o Mac
 dudu restore --dry-run --from <nome do mac>
 dudu restore --from <nome do mac>
 ```
@@ -95,17 +95,17 @@ Os nomes que mudam estão em [`lib/data/brew-linux.map`](lib/data/brew-linux.map
 | --- | --- | --- |
 | Pasta local | `~/dudu-backups` ou qualquer pasta | Padrão |
 | iCloud Drive | `iCloud Drive/dudu` | macOS |
-| Google Drive | `Meu Drive/dudu` | `dudu config gdrive`, no macOS e no Linux, em 4 etapas (veja abaixo). O Drive for desktop é usado se estiver instalado. Pasta sincronizada: `dudu config set gdrive_path <pasta>` |
+| Google Drive | `Meu Drive/dudu-<máquina>` | `dudu config gdrive`, no macOS e no Linux, em 4 etapas (veja abaixo). O Drive for desktop é usado se estiver instalado. Pasta sincronizada: `dudu config set gdrive_path <pasta>` |
 | Apple Notes | a nota `dudu backup - <máquina>` na pasta `dudu` | macOS. Um resumo legível mais o backup inteiro embutido. O primeiro backup pede permissão para controlar o Notes |
 
 **`dudu config gdrive`** salva direto no Google Drive, sem o Drive for desktop:
 
 1. **rclone**: instala, se faltar (`brew install rclone`, ou apt/dnf/pacman).
-2. **Pasta**: Enter cria uma pasta `dudu` no Meu Drive. Assim o dudu só enxerga os arquivos que ele mesmo cria (acesso `drive.file`), nada mais do seu Drive. Ou cole o link de uma pasta (`https://drive.google.com/drive/folders/…`). Qualquer outro link é recusado, incluindo encurtadores e sites parecidos. Uma pasta colada precisa de acesso ao Drive inteiro.
+2. **Pasta**: escolha **1, conectar minha conta Google**, e o dudu cria `dudu-<máquina>` no Meu Drive. Assim ele só enxerga os arquivos que ele mesmo cria (acesso `drive.file`), nada mais do seu Drive. Ou escolha **2, colar o link de uma pasta** que você já tem (no Drive: botão direito › Compartilhar › Copiar link). Um link errado diz o motivo: é um arquivo e não uma pasta, é outro site, é um encurtador. Uma pasta colada precisa de acesso ao Drive inteiro, e cada máquina ganha a sua `dudu-<máquina>` dentro dela.
 3. **Conta Google**: um navegador abre para você entrar uma vez. O dudu usa um remote próprio do rclone (`dudu-gdrive`), então os seus outros remotes não são tocados.
 4. **Verificações**: um arquivo de teste é gravado, lido de volta e apagado. A config do rclone, onde fica o token do Google, passa a ser legível só por você. Se a criptografia estiver desligada, o dudu oferece ligar. Ele também lista as máquinas que já têm backup lá.
 
-Se uma etapa falha, nada é salvo e a configuração anterior continua valendo. Se o Mac salva pelo Drive for desktop: no Linux, cole o link da pasta `dudu` dele. Como ela não foi criada pelo dudu, não aparece com `drive.file`.
+No fim, e depois de cada backup, o dudu mostra o link da pasta para abrir no navegador. Se uma etapa falha, nada é salvo e a configuração anterior continua valendo. Se o Mac salva pelo Drive for desktop: no Linux, escolha 2 e cole o link da pasta `dudu` dele. Como ela não foi criada pelo dudu, não aparece com `drive.file`.
 
 Escolha **um ou mais** com `dudu config` ou `dudu config set destination icloud,notes`. Cada backup vai para todos, e um que falhe não impede os outros. `restore` e `status` usam o backup mais novo entre eles. Nas pastas ficam os 5 últimos backups de cada máquina (`dudu config set keep 10`).
 

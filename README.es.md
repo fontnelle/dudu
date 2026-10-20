@@ -78,7 +78,7 @@ dudu backup
 
 # En Linux
 curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/main/install.sh | bash
-dudu config gdrive              # Enter: la misma carpeta dudu en la que escribe la Mac
+dudu config gdrive              # 1: la misma cuenta de Google, lista la Mac
 dudu restore --dry-run --from <nombre de la mac>
 dudu restore --from <nombre de la mac>
 ```
@@ -95,17 +95,17 @@ Los nombres que cambian están en [`lib/data/brew-linux.map`](lib/data/brew-linu
 | --- | --- | --- |
 | Carpeta local | `~/dudu-backups` o cualquier carpeta | Predeterminado |
 | iCloud Drive | `iCloud Drive/dudu` | macOS |
-| Google Drive | `Mi unidad/dudu` | `dudu config gdrive`, en macOS y Linux, en 4 pasos (ver abajo). Drive para escritorio se usa si está instalado. Carpeta sincronizada: `dudu config set gdrive_path <carpeta>` |
+| Google Drive | `Mi unidad/dudu-<máquina>` | `dudu config gdrive`, en macOS y Linux, en 4 pasos (ver abajo). Drive para escritorio se usa si está instalado. Carpeta sincronizada: `dudu config set gdrive_path <carpeta>` |
 | Apple Notes | la nota `dudu backup - <máquina>` en la carpeta `dudu` | macOS. Un resumen legible más todo el respaldo incrustado. El primer guardado pide permiso para controlar Notas |
 
 **`dudu config gdrive`** guarda directo en Google Drive, sin Drive para escritorio:
 
 1. **rclone**: lo instala si falta (`brew install rclone`, o apt/dnf/pacman).
-2. **Carpeta**: Enter crea una carpeta `dudu` en Mi unidad. Así dudu solo ve los archivos que él mismo crea (acceso `drive.file`), nada más de tu Drive. O pega el enlace de una carpeta (`https://drive.google.com/drive/folders/…`). Cualquier otro enlace se rechaza, incluidos acortadores y sitios parecidos. Una carpeta pegada necesita acceso a todo el Drive.
+2. **Carpeta**: elige **1, conectar mi cuenta de Google**, y dudu crea `dudu-<máquina>` en Mi unidad. Así solo ve los archivos que él mismo crea (acceso `drive.file`), nada más de tu Drive. O elige **2, pegar el enlace de una carpeta** que ya tienes (en Drive: clic derecho › Compartir › Copiar enlace). Un enlace equivocado dice por qué: es un archivo y no una carpeta, es otro sitio, es un acortador. Una carpeta pegada necesita acceso a todo el Drive, y cada máquina tiene su `dudu-<máquina>` dentro de ella.
 3. **Cuenta de Google**: se abre un navegador para iniciar sesión una vez. dudu usa un remote propio de rclone (`dudu-gdrive`), así que tus otros remotes no se tocan.
 4. **Verificaciones**: se escribe un archivo de prueba, se lee de vuelta y se borra. La configuración de rclone, donde está el token de Google, queda legible solo para ti. Si el cifrado está apagado, dudu ofrece encenderlo. También lista las máquinas que ya tienen respaldo ahí.
 
-Si un paso falla, no se guarda nada y la configuración anterior sigue vigente. Si la Mac guarda con Drive para escritorio: en Linux, pega el enlace de su carpeta `dudu`. Como no la creó dudu, no se ve con `drive.file`.
+Al final, y después de cada respaldo, dudu muestra el enlace de la carpeta para abrirla en el navegador. Si un paso falla, no se guarda nada y la configuración anterior sigue vigente. Si la Mac guarda con Drive para escritorio: en Linux, elige 2 y pega el enlace de su carpeta `dudu`. Como no la creó dudu, no se ve con `drive.file`.
 
 Elige **uno o más** con `dudu config` o `dudu config set destination icloud,notes`. Cada respaldo va a todos, y si uno falla los demás siguen. `restore` y `status` leen el respaldo más reciente que encuentren entre ellos. Las carpetas conservan los últimos 5 respaldos por máquina (`dudu config set keep 10`).
 

@@ -36,16 +36,27 @@ config_pick_destination() {
     return 1
   fi
 
-  local path
-  if list_has "$chosen" local; then
-    printf '%s ' "$(t "Local folder [%s]:" "$(tilde "${DUDU_PATH:-$HOME/dudu-backups}")")"
-    read -r path
-    DUDU_PATH=$(expand_home "${path:-${DUDU_PATH:-$HOME/dudu-backups}}")
-  fi
+  # Google Drive first: its steps ask for a link, the local folder below for a path.
   if list_has "$chosen" gdrive && ! gdrive_available 2>/dev/null && ! gdrive_setup; then
     warn "$(t "Leaving Google Drive out. Try again with %s, or use a synced folder: %s" "dudu config gdrive" "dudu config set gdrive_path <folder>")"
     chosen=$(printf '%s' "$chosen" | tr ',' '\n' | grep -vx gdrive | paste -sd, -)
     [ -n "$chosen" ] || return 1
+  fi
+  local path problem
+  if list_has "$chosen" local; then
+    echo
+    while :; do
+      printf '%s ' "$(t "Local folder: where on this computer to keep backups (Enter = %s):" "$(tilde "${DUDU_PATH:-$HOME/dudu-backups}")")"
+      IFS= read -r path || path=""
+      path=$(expand_home "$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')")
+      path=${path:-${DUDU_PATH:-$HOME/dudu-backups}}
+      if problem=$(folder_path_error "$path"); then
+        step_row fail "$(t "Local folder")" "$problem"
+        continue
+      fi
+      DUDU_PATH=$path
+      break
+    done
   fi
 
   DUDU_DESTINATION=$chosen
@@ -232,8 +243,11 @@ cmd_config() {
               die "$(t "Unknown destination: %s (use one or more of: %s)" "$d" "$(echo "$DUDU_DESTINATIONS" | tr ' ' ',')")"
           done
           DUDU_DESTINATION=$3 ;;
-        path) DUDU_PATH=$(expand_home "$3") ;;
-        gdrive_path) DUDU_GDRIVE_PATH=$(expand_home "$3") ;;
+        path|gdrive_path)
+          local value problem
+          value=$(expand_home "$3")
+          if problem=$(folder_path_error "$value"); then die "$problem"; fi
+          if [ "$2" = path ]; then DUDU_PATH=$value; else DUDU_GDRIVE_PATH=$value; fi ;;
         include) DUDU_INCLUDE=$3 ;;
         exclude) DUDU_EXCLUDE=$3 ;;
         keep)

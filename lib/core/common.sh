@@ -57,6 +57,27 @@ expand_home() {
   esac
 }
 
+# Why <path> cannot hold backups, printed for people: a link, a relative path ("q", which
+# would land wherever dudu runs) or control characters. Prints nothing and returns 1 for a
+# usable folder path, so: if problem=$(folder_path_error "$p"); then warn "$problem"; fi
+folder_path_error() { # <path, ~ already expanded>
+  case "$1" in
+    *://*)
+      case "$1" in
+        *drive.google.com*) t "That is a Google Drive link: it goes in the Google Drive step (%s)" "dudu config gdrive" ;;
+        *) t "%s is a link, not a folder on this computer" "$(safe_text "$1")" ;;
+      esac
+      return 0 ;;
+    /*) ;;
+    *) t "%s is not a full path: start it with / or ~/" "$(safe_text "$1")"; return 0 ;;
+  esac
+  if printf '%s' "$1" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    t "%s has control characters" "$(safe_text "$1")"
+    return 0
+  fi
+  return 1
+}
+
 # destination= is a comma list (icloud,notes): every backup goes to all of them.
 # path= is the local folder, gdrive_path= a Google Drive folder that was not auto-detected.
 # language= is auto (follow the system), en, pt-BR or es: i18n_init reads it on its own.
@@ -96,6 +117,17 @@ config_load() {
   if [ "$DUDU_DESTINATION" = gdrive ] && [ -n "$DUDU_PATH" ] && [ -z "$DUDU_GDRIVE_PATH" ]; then
     DUDU_GDRIVE_PATH=$DUDU_PATH
     DUDU_PATH=""
+  fi
+  # A hand-edited or pasted value that is not a folder (a link, "q") is never written to:
+  # a relative path would put backups wherever dudu happens to run.
+  local problem
+  if [ -n "$DUDU_PATH" ] && problem=$(folder_path_error "$DUDU_PATH"); then
+    printf 'dudu: path= %s · %s\n' "$problem" "$(t "using %s, fix it with: %s" "~/dudu-backups" "dudu config")" >&2
+    DUDU_PATH=""
+  fi
+  if [ -n "$DUDU_GDRIVE_PATH" ] && problem=$(folder_path_error "$DUDU_GDRIVE_PATH"); then
+    printf 'dudu: gdrive_path= %s · %s\n' "$problem" "$(t "ignored, fix it with: %s" "dudu config gdrive")" >&2
+    DUDU_GDRIVE_PATH=""
   fi
   return 0
 }
