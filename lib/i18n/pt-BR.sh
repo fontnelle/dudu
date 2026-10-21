@@ -542,6 +542,8 @@ i18n_catalog_pt_BR() {
     "%s (Windows only)") I18N_MSG="%s (só no Windows)" ;;
     "Show in Explorer?") I18N_MSG="Mostrar no Explorador de Arquivos?" ;;
     "Task Scheduler could not create the task %s") I18N_MSG="O Agendador de Tarefas não conseguiu criar a tarefa %s" ;;
+    "Install winget or scoop first, then run %s again") I18N_MSG="Instale o winget ou o scoop antes e rode %s de novo" ;;
+    "Made on %s: Homebrew apps become winget and scoop packages, what has no equivalent is listed before restoring") I18N_MSG="Feito no %s: os apps do Homebrew viram pacotes winget e scoop, o que não tem equivalente é listado antes de restaurar" ;;
     *) return 1 ;;
   esac
 }

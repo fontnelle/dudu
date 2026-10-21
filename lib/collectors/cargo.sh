@@ -18,7 +18,8 @@ cargo_restore() {
   [ -s "$1/crates.txt" ] || return 0
   if ! has cargo; then
     step "$(t "Installing %s" "Rust (rustup)")"
-    act_sh "curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y" || return 1
+    if is_windows; then win_pkg_install Rustlang.Rustup rustup || return 1
+    else act_sh "curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y" || return 1; fi
     export PATH="$HOME/.cargo/bin:$PATH"
   fi
   local c

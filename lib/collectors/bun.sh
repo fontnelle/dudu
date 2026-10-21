@@ -15,7 +15,8 @@ bun_restore() {
   [ -s "$1/globals.txt" ] || return 0
   if ! has bun; then
     step "$(t "Installing %s" bun)"
-    act_sh 'curl -fsSL https://bun.sh/install | bash' || return 1
+    if is_windows; then win_pkg_install Oven-sh.Bun bun || return 1
+    else act_sh 'curl -fsSL https://bun.sh/install | bash' || return 1; fi
     export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
   fi
   local pkgs

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Backups made on the other OS (a Mac's backup restored on Linux, or the reverse): what of
-# them applies here, and a Mac's Brewfile turned into this Linux's packages.
-# The names that differ between Homebrew and Linux are in lib/data/brew-linux.map.
+# Backups made on another OS (a Mac's backup restored on Linux or Windows, or the reverse):
+# what of them applies here, and a Mac's Brewfile turned into this system's packages.
+# The names that differ between Homebrew and Linux are in lib/data/brew-linux.map, and the
+# winget and scoop names in lib/data/brew-windows.map.
 
 # Tools of one OS only: a backup from the other one has nothing to restore here for them.
 collector_applies() { # <collector>
@@ -158,11 +159,13 @@ crossos_localize() { # <bundle> <left out file>
     rm -rf "${b:?}/$c/home"
     mv "$tmp" "$b/$c/home"
   done
+  # Windows' AppData (Windows Terminal, nvim) means nothing on macOS or Linux.
+  is_windows || crossos_set_aside "$b" AppData "$2"
   is_macos && return 0
 
   # Ghostty reads the same config from ~/.config/ghostty on Linux.
   f="$b/terminal/home/Library/Application Support/com.mitchellh.ghostty/config"
-  if [ -f "$f" ] && [ ! -f "$b/terminal/home/.config/ghostty/config" ]; then
+  if ! is_windows && [ -f "$f" ] && [ ! -f "$b/terminal/home/.config/ghostty/config" ]; then
     mkdir -p "$b/terminal/home/.config/ghostty"
     mv "$f" "$b/terminal/home/.config/ghostty/config"
   fi
@@ -171,13 +174,102 @@ crossos_localize() { # <bundle> <left out file>
     [ -f "$f" ] && printf 'terminal|%s\n' "$(pretty_file "defaults/$(basename "$f")")" >> "$2"
   done
   rm -rf "$b/terminal/defaults"
-  for d in "$b"/*/home/Library; do
+  crossos_set_aside "$b" Library "$2"
+  if [ -f "$b/brew/Brewfile" ]; then
+    if is_windows; then crossos_brew_localize_windows "$b/brew" "$2"; else crossos_brew_localize "$b/brew" "$2"; fi
+  fi
+  return 0
+}
+
+# Takes every tool's home/<top> folder (Library, AppData) out of the bundle, listing its
+# files in <left out file>.
+crossos_set_aside() { # <bundle> <top folder> <left out file>
+  local d c
+  for d in "$1"/*/home/"$2"; do
     [ -d "$d" ] || continue
     c=$(basename "$(dirname "$(dirname "$d")")")
-    (cd "$d/.." && find Library -type f) | LC_ALL=C sort | sed "s#^#$c|~/#" >> "$2"
+    (cd "$d/.." && find "$2" -type f) | LC_ALL=C sort | sed "s#^#$c|~/#" >> "$3"
     rm -rf "$d"
   done
-  [ -f "$b/brew/Brewfile" ] && crossos_brew_localize "$b/brew" "$2"
+}
+
+CROSSOS_WIN_MAP="$DUDU_ROOT/lib/data/brew-windows.map"
+
+# What each entry of a Brewfile becomes on Windows, one per line:
+#   winget|<id>|<name>   scoop|<app>|<name>   none|<name>
+# winget comes first; scoop takes what winget has no id for, when scoop is installed.
+crossos_windows_plan() { # <Brewfile>
+  local kind name base line w sc
+  while IFS='|' read -r kind name; do
+    base=${name##*/}
+    w="" sc=""
+    line=$(awk -F'|' -v k="$kind" -v n="$base" '$1 == k && $2 == n { print; exit }' "$CROSSOS_WIN_MAP")
+    if [ -n "$line" ]; then
+      w=$(printf '%s' "$line" | cut -d'|' -f3)
+      sc=$(printf '%s' "$line" | cut -d'|' -f4)
+    elif [ "$kind" = brew ]; then
+      sc=$base
+    fi
+    case "$w" in -|@*) continue ;; esac
+    case "$kind" in
+      brew | cask)
+        local label=$base
+        [ "$kind" = cask ] && label="$base (cask)"
+        if [ -n "$w" ] && has winget; then echo "winget|$w|$label"
+        elif [ -n "$sc" ] && has scoop; then echo "scoop|$sc|$label"
+        else echo "none|$label"
+        fi
+        ;;
+      mas) echo "none|$name (App Store)" ;;
+      whalebrew) echo "none|$name (whalebrew)" ;;
+    esac
+  done < <(brew_safe_brewfile "$1" 2>/dev/null | LC_ALL=C awk '
+    /^(brew|cask|whalebrew) "/ { split($0, q, "\""); if (q[2] ~ /^[A-Za-z0-9@][A-Za-z0-9@._+\/-]*$/) print $1 "|" q[2]; next }
+    /^mas "/ { split($0, q, "\""); gsub(/\|/, "", q[2]); print "mas|" q[2] }')
+}
+
+# A Mac's brew folder made ready for Windows: the Brewfile becomes windows/winget.txt and
+# windows/scoop.txt, holding only what this machine is missing. The rest goes to <left out>.
+crossos_brew_localize_windows() { # <brew dir> <left out file>
+  local brewfile kind id name f now
+  brewfile=$(mktemp)
+  mv "$1/Brewfile" "$brewfile"
+  mkdir -p "$1/windows"
+  while IFS='|' read -r kind id name; do
+    case "$kind" in
+      winget | scoop) printf '%s\n' "$id" >> "$1/windows/$kind.txt" ;;
+      none) printf 'brew|%s\n' "$id" >> "$2" ;;
+    esac
+  done < <(crossos_windows_plan "$brewfile")
+  rm -f "$brewfile"
+  now=$(mktemp)
+  for f in "$1"/windows/*.txt; do
+    [ -f "$f" ] || continue
+    case "$(basename "$f" .txt)" in
+      winget) winget_ids ;;
+      scoop) scoop list 2>/dev/null | tr -d '\r' | awk 'NR > 2 && NF { print $1 }' ;;
+    esac > "$now"
+    missing_pkgs "$f" < "$now" > "$f.new" 2>/dev/null
+    mv "$f.new" "$f"
+  done
+  rm -f "$now"
+}
+
+# Installs a Mac's Homebrew apps on Windows, from what crossos_brew_localize_windows left.
+crossos_brew_restore_windows() { # <brew dir>
+  local d=$1/windows id
+  if [ -s "$d/winget.txt" ]; then
+    while IFS= read -r id; do
+      winget_install "$id" || warn "$(t "could not install %s" "$id")"
+    done < <(pkg_filter < "$d/winget.txt")
+  fi
+  if [ -s "$d/scoop.txt" ] && has scoop; then
+    # Most apps (the casks) are in the extras bucket.
+    scoop bucket list 2>/dev/null | grep -q '^extras' || act scoop bucket add extras || warn "$(t "could not add %s" extras)"
+    while IFS= read -r id; do
+      act scoop install "$id" || warn "$(t "could not install %s" "$id")"
+    done < <(pkg_filter < "$d/scoop.txt")
+  fi
   return 0
 }
 

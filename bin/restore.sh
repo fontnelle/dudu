@@ -127,8 +127,10 @@ restore_source_done() { # <bundle>
   RESTORE_CREATED=$(friendly_date "$(manifest_field "$1" created)")
   phase_done "$(manifest_field "$1" host) · $(manifest_field "$1" os_version) · dudu $(manifest_field "$1" dudu)"
   if crossos_bundle "$1"; then
-    if is_macos; then
+    if is_macos || [ "$(manifest_field "$1" os)" = windows ]; then
       dim "  $(t "Made on %s: what only exists there is listed before restoring" "$(os_label "$(manifest_field "$1" os)")")"
+    elif is_windows; then
+      dim "  $(t "Made on %s: Homebrew apps become winget and scoop packages, what has no equivalent is listed before restoring" "$(os_label "$(manifest_field "$1" os)")")"
     else
       dim "  $(t "Made on %s: Homebrew apps become %s and Flathub packages, what has no equivalent is listed before restoring" "$(os_label "$(manifest_field "$1" os)")" "$(linux_pm)")"
     fi
@@ -209,7 +211,7 @@ restore_compare() { # <bundle> <work dir>
   crossos_localize "$b" "$RESTORE_LEFT_OUT"
   restore_collect_now "$now" "$(echo "$RESTORE_ITEMS" | tr ' ' ',')"
   # Homebrew turned into this Linux's packages is compared with them, not with "no brew".
-  [ -d "$b/brew/linux" ] && mkdir -p "$now/brew"
+  { [ -d "$b/brew/linux" ] || [ -d "$b/brew/windows" ]; } && mkdir -p "$now/brew"
 
   # The rows come after every tool was read, the ones that match first, on one line.
   for c in $RESTORE_ITEMS; do

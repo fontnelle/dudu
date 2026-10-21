@@ -257,3 +257,82 @@ JSON
   crypto_store_password pw
   [ "$(cat "$(crypto_key_file)")" = pw ]
 }
+
+# A Mac's backup restored on Windows, with winget and scoop stand-ins.
+mac_bundle_on_windows() {
+  B="$BATS_TEST_TMPDIR/bundle"
+  cp -R "$DUDU_ROOT/tests/fixtures/mac-bundle" "$B"
+  LEFT="$BATS_TEST_TMPDIR/left-out"
+  : > "$LEFT"
+  fake_cmd winget 'case "$1" in
+  export) while [ $# -gt 0 ]; do [ "$1" = -o ] && out=$2; shift; done; echo "{\"PackageIdentifier\": \"Git.Git\"}" > "$out" ;;
+  install) echo "winget $3" >> "$BATS_TEST_TMPDIR/installed" ;;
+esac'
+  fake_cmd scoop 'case "$1" in
+  list) printf "Installed apps:\n\nName Version\n" ;;
+  bucket) [ "$2" = add ] && echo "bucket $3" >> "$BATS_TEST_TMPDIR/installed" ;;
+  install) echo "scoop $2" >> "$BATS_TEST_TMPDIR/installed" ;;
+esac'
+  win_path() { printf '%s' "$1"; }
+  brew_load_shellenv() { return 1; }
+}
+
+@test "a Mac's Brewfile becomes winget and scoop packages" {
+  mac_bundle_on_windows
+  run crossos_windows_plan "$B/brew/Brewfile"
+  [[ "$output" == *"winget|Git.Git|git"* ]] || false
+  [[ "$output" == *"winget|PostgreSQL.PostgreSQL.16|postgresql@16"* ]] || false
+  [[ "$output" == *"winget|SlackTechnologies.Slack|slack (cask)"* ]] || false
+  # fd has a winget id; coreutils is in Git Bash; nvm is the node collector's.
+  [[ "$output" == *"winget|sharkdp.fd|fd"* ]] || false
+  [[ "$output" != *coreutils* ]] || false
+  [[ "$output" != *nvm* ]] || false
+  [[ "$output" == *"none|magnet (cask)"* ]] || false
+  [[ "$output" == *"none|Xcode (App Store)"* ]] || false
+}
+
+@test "without winget, formulas go to scoop under their own name" {
+  mac_bundle_on_windows
+  rm "$BATS_TEST_TMPDIR/bin/winget"
+  run crossos_windows_plan "$B/brew/Brewfile"
+  [[ "$output" == *"scoop|git|git"* ]] || false
+  [[ "$output" == *"scoop|slack|slack (cask)"* ]] || false
+  [[ "$output" == *"none|postgresql@16"* ]] || false
+}
+
+@test "crossos_localize turns a Mac backup into this Windows' one" {
+  mac_bundle_on_windows
+  crossos_localize "$B" "$LEFT"
+  [ -f "$B/vscode/home/AppData/Roaming/Code/User/settings.json" ]
+  [ -z "$(find "$B" -path '*/home/Library*')" ]
+  [ ! -d "$B/terminal/defaults" ]
+  [ ! -f "$B/brew/Brewfile" ]
+  # git is installed already: only what is missing stays.
+  run ! grep -qx Git.Git "$B/brew/windows/winget.txt"
+  grep -qx sharkdp.fd "$B/brew/windows/winget.txt"
+  grep -qx SlackTechnologies.Slack "$B/brew/windows/winget.txt"
+  grep -qx 'brew|magnet (cask)' "$LEFT"
+  grep -q '^terminal|~/Library/' "$LEFT"
+}
+
+@test "brew restore on Windows installs the mapped packages" {
+  mac_bundle_on_windows
+  crossos_localize "$B" "$LEFT"
+  brew_restore "$B/brew"
+  grep -qx 'winget sharkdp.fd' "$BATS_TEST_TMPDIR/installed"
+  grep -qx 'winget SlackTechnologies.Slack' "$BATS_TEST_TMPDIR/installed"
+  run ! grep -q 'winget Git.Git' "$BATS_TEST_TMPDIR/installed"
+}
+
+@test "a Windows backup on a Mac or Linux sets AppData aside" {
+  is_windows() { return 1; }
+  dudu_os() { echo linux; }
+  B="$BATS_TEST_TMPDIR/bundle" LEFT="$BATS_TEST_TMPDIR/left-out"
+  mkdir -p "$B/terminal/home/AppData/Local/Packages/X/LocalState"
+  echo '{}' > "$B/terminal/home/AppData/Local/Packages/X/LocalState/settings.json"
+  printf '{"os": "windows"}\n' > "$B/manifest.json"
+  : > "$LEFT"
+  crossos_localize "$B" "$LEFT"
+  [ ! -d "$B/terminal/home/AppData" ]
+  grep -qx 'terminal|~/AppData/Local/Packages/X/LocalState/settings.json' "$LEFT"
+}

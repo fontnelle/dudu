@@ -55,3 +55,15 @@ winget_outdated() {
 winget_upgrade_hint() { echo "winget upgrade --all"; }
 # shellcheck disable=SC2086
 winget_upgrade() { winget upgrade --id "$1" --exact --silent $WINGET_ACCEPT; }
+
+# A tool another collector needs (rustup, bun, fnm), from whichever Windows package manager
+# is here. Its command is usable right away: winget's links folder is added to PATH.
+win_pkg_install() { # <winget id> <scoop name>
+  case "$(win_pm)" in
+    winget) winget_install "$1" || return 1 ;;
+    scoop) act scoop install "$2" || return 1 ;;
+    choco) act choco install -y "$2" || return 1 ;;
+    *) warn "$(t "Install winget or scoop first, then run %s again" "dudu restore")"; return 1 ;;
+  esac
+  PATH="$PATH:$(win_localappdata)/Microsoft/WinGet/Links"
+}

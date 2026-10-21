@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Node.js versions through nvm (or fnm/volta), with the default version.
+# Node.js versions through nvm (or fnm/volta, or nvm-windows), with the default version.
+# On Windows a backup made with nvm is restored with nvm-windows when it is there, else fnm.
 
 NVM_INSTALL_URL="https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
 
@@ -14,7 +15,10 @@ node_load_nvm() {
   . "$dir/nvm.sh" --no-use
 }
 
-node_detect() { [ -s "$(node_nvm_dir)/nvm.sh" ] || has fnm || has volta || has node; }
+# nvm-windows: a nvm.exe with its versions in %NVM_HOME%.
+node_nvm_windows() { is_windows && has nvm && [ -n "${NVM_HOME:-}" ]; }
+
+node_detect() { [ -s "$(node_nvm_dir)/nvm.sh" ] || node_nvm_windows || has fnm || has volta || has node; }
 
 node_backup() {
   local dir raw
@@ -24,6 +28,11 @@ node_backup() {
     : > "$1/versions.txt"
     for raw in "$dir"/versions/node/v*; do [ -d "$raw" ] && basename "$raw" >> "$1/versions.txt"; done
     [ -f "$dir/alias/default" ] && cat "$dir/alias/default" > "$1/default"
+  elif node_nvm_windows; then
+    echo nvm > "$1/manager"
+    : > "$1/versions.txt"
+    for raw in "$(unix_path "$NVM_HOME")"/v*; do [ -d "$raw" ] && basename "$raw" >> "$1/versions.txt"; done
+    node --version 2>/dev/null | tr -d '\r' > "$1/default"
   elif has fnm; then
     echo fnm > "$1/manager"
     raw=$(fnm list 2>/dev/null) || return 1
@@ -46,7 +55,24 @@ node_restore() {
   manager=$(cat "$1/manager")
   default=$(pkg_filter < "$1/default" 2>/dev/null | head -1)
   dir=$(node_nvm_dir)
+  # nvm's install script is for macOS and Linux shells.
+  if is_windows && [ "$manager" = nvm ]; then
+    if node_nvm_windows; then manager=nvm-windows
+    else
+      manager=fnm
+      if ! has fnm; then
+        step "$(t "Installing %s" fnm)"
+        win_pkg_install Schniz.fnm fnm || return 1
+      fi
+    fi
+  fi
   case "$manager" in
+    nvm-windows)
+      while IFS= read -r v; do
+        if [ -d "$(unix_path "$NVM_HOME")/$v" ]; then dim "  = node $v"; else act nvm install "${v#v}"; fi
+      done < <(pkg_filter < "$1/versions.txt")
+      [ -n "$default" ] && [ "$(node --version 2>/dev/null | tr -d '\r')" != "$default" ] && act nvm use "${default#v}"
+      ;;
     nvm)
       if [ ! -s "$dir/nvm.sh" ]; then
         step "$(t "Installing %s" nvm)"
