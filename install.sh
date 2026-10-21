@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# dudu installer.
-#   curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/main/install.sh | bash
+# dudu installer, Windows edition (run it in Git Bash, or through install.ps1).
+#   curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/windows/install.sh | bash
 #   ... | bash -s -- 0.1.0                 a specific version
-#   ... | bash -s -- main                  the development branch
-#   ... | bash -s -- --prefix ~/.local/bin install the command somewhere else
+#   ... | bash -s -- windows               the development branch
+#   ... | bash -s -- --prefix ~/bin        install the command somewhere else
 
 set -euo pipefail
 
 REPO="fontnelle/dudu"
+BRANCH="windows"
+# Releases of this edition are tagged win-vX.Y.Z.
+TAG_PREFIX="win-v"
 
 if [ -z "${NO_COLOR:-}" ] && [ -t 1 ]; then
   GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; BLUE=$'\033[34m'; NC=$'\033[0m'
@@ -19,7 +22,8 @@ ok() { printf '%s✓%s %s\n' "$GREEN" "$NC" "$*"; }
 warn() { printf '%s⚠%s %s\n' "$YELLOW" "$NC" "$*"; }
 die() { printf '%s✗%s %s\n' "$RED" "$NC" "$*" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] && die "Do not run the installer as root, dudu works on your user's files."
+case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) windows=1 ;; *) windows="" ;; esac
+[ -z "$windows" ] && [ "$(id -u)" -eq 0 ] && die "Do not run the installer as root, dudu works on your user's files."
 command -v curl >/dev/null || die "curl is required"
 command -v tar >/dev/null || die "tar is required"
 
@@ -35,7 +39,10 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if [ -z "$bin_dir" ]; then
+if [ -z "$bin_dir" ] && [ -n "$windows" ]; then
+  # Git Bash puts ~/bin in PATH by itself.
+  bin_dir="$HOME/bin"
+elif [ -z "$bin_dir" ]; then
   if [ -w /usr/local/bin ] && [ -w /usr/local/lib ]; then bin_dir=/usr/local/bin; else bin_dir="$HOME/.local/bin"; fi
 fi
 case "$bin_dir" in "~"/*) bin_dir="$HOME/${bin_dir#\~/}" ;; esac
@@ -46,13 +53,16 @@ else
 fi
 
 if [ -z "$version" ]; then
-  version=$(curl -fsSL --max-time 10 "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null |
-    sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' | head -1 || true)
-  # Never fall back to unreleased code on its own: main is only installed when asked for.
+  # The newest win-v tag: the repository's "latest" release is the macOS/Linux edition.
+  version=$(curl -fsSL --max-time 10 "https://api.github.com/repos/$REPO/releases?per_page=50" 2>/dev/null |
+    sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+    awk -v p="$TAG_PREFIX" 'index($0, p) == 1 { print substr($0, length(p) + 1); exit }' || true)
+  # Never fall back to unreleased code on its own: the branch is only installed when asked for.
   [ -n "$version" ] || die "Could not find the latest release (offline, or GitHub rate limit). Retry later, or pass a version: bash -s -- 0.1.0"
 fi
 
-if [ "$version" != main ] && [ -x "$lib_dir/dudu" ]; then
+[ "$version" = main ] && version=$BRANCH
+if [ "$version" != "$BRANCH" ] && [ -x "$lib_dir/dudu" ]; then
   installed=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$lib_dir/dudu" | head -1)
   if [ "$installed" = "$version" ]; then
     ok "Already on the latest version ($version)"
@@ -63,12 +73,12 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-if [ "$version" = main ]; then
-  step "Downloading dudu (main)"
-  curl -fsSL "https://github.com/$REPO/archive/refs/heads/main.tar.gz" -o "$tmp/dudu.tar.gz"
+if [ "$version" = "$BRANCH" ]; then
+  step "Downloading dudu ($BRANCH)"
+  curl -fsSL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" -o "$tmp/dudu.tar.gz"
 else
   step "Downloading dudu $version"
-  base="https://github.com/$REPO/releases/download/v$version"
+  base="https://github.com/$REPO/releases/download/$TAG_PREFIX$version"
   curl -fsSL "$base/dudu-$version.tar.gz" -o "$tmp/dudu.tar.gz" || die "Version $version not found"
   curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" || die "Checksums not found for $version"
   expected=$(awk -v f="dudu-$version.tar.gz" '$2 == f || $2 == "*"f { print $1 }' "$tmp/SHA256SUMS")
@@ -97,12 +107,20 @@ cp -R "$tmp/src" "$lib_dir.new" || die "Could not copy dudu to $lib_dir"
 [ -d "$lib_dir" ] && mv "$lib_dir" "$lib_dir.old"
 mv "$lib_dir.new" "$lib_dir" || { [ -d "$lib_dir.old" ] && mv "$lib_dir.old" "$lib_dir"; die "Could not install dudu"; }
 rm -rf "$lib_dir.old"
-ln -sf "$lib_dir/dudu" "$bin_dir/dudu"
+if [ -n "$windows" ]; then
+  # Without Developer Mode, Git Bash's ln -s makes a copy, which would not find lib/.
+  rm -f "$bin_dir/dudu"
+  printf '#!/usr/bin/env bash\nexec "%s/dudu" "$@"\n' "$lib_dir" > "$bin_dir/dudu"
+  chmod +x "$bin_dir/dudu"
+else
+  ln -sf "$lib_dir/dudu" "$bin_dir/dudu"
+fi
 
 ok "dudu $("$lib_dir/dudu" --version | awk '{ print $2 }') installed in $bin_dir/dudu"
 case ":$PATH:" in
   *":$bin_dir:"*) ;;
-  *) warn "$bin_dir is not in your PATH. Add it: echo 'export PATH=\"$bin_dir:\$PATH\"' >> ~/.zshrc" ;;
+  *) rc="~/.zshrc"; [ -n "$windows" ] && rc="~/.bashrc"
+     warn "$bin_dir is not in your PATH. Add it: echo 'export PATH=\"$bin_dir:\$PATH\"' >> $rc" ;;
 esac
 echo
 echo "Run ${GREEN}dudu${NC} to start, or ${GREEN}dudu backup${NC} to save your setup now."

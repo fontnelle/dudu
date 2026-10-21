@@ -2,7 +2,7 @@
 # dudu: backup and restore of your dev environment (installs, runtimes, terminal config).
 # https://github.com/fontnelle/dudu
 
-VERSION="0.5.2"
+VERSION="0.1.0"
 
 set -o pipefail
 
@@ -159,7 +159,7 @@ main() {
     config|settings) cmd_config "$@" ;;
     update) cmd_update "$@" ;;
     completion) cmd_completion "$@" ;;
-    -v|--version|version) printf 'dudu %s\n' "$VERSION" ;;
+    -v|--version|version) printf 'dudu %s (Windows)\n' "$VERSION" ;;
     -h|--help|help) usage ;;
     *) err "$(t "Unknown command: %s" "$cmd")"; echo; usage; exit 1 ;;
   esac

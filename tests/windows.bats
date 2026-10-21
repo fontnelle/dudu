@@ -336,3 +336,16 @@ esac'
   [ ! -d "$B/terminal/home/AppData" ]
   grep -qx 'terminal|~/AppData/Local/Packages/X/LocalState/settings.json' "$LEFT"
 }
+
+@test "updates follow the win-v releases only" {
+  out=$(printf '%s\n' '[{"tag_name": "v0.6.0"},' '{"tag_name": "win-v0.2.0"},' '{"tag_name": "win-v0.1.0"}]' | release_tags)
+  [ "$out" = "$(printf '0.2.0\n0.1.0')" ]
+  curl() { printf '%s\n' '[{"tag_name": "v0.6.0"},' '{"tag_name": "win-v0.2.0"}]'; }
+  [ "$(latest_version)" = 0.2.0 ]
+}
+
+@test "the release notes come from the Windows changelog" {
+  run "$DUDU_ROOT/packaging/release-notes.sh" --title "$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$DUDU_ROOT/dudu")"
+  [ "$status" -eq 0 ]
+  [[ "$output" == win-v* ]] || false
+}

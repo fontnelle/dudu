@@ -1,8 +1,11 @@
-name: Release
+name: Release (Windows)
 
+# The Windows edition is released from the windows branch as win-vX.Y.Z. These releases are
+# never marked "latest", which stays the macOS/Linux edition's, and they do not touch the
+# Homebrew tap.
 on:
   push:
-    tags: ["v*"]
+    tags: ["win-v*"]
 
 permissions:
   contents: write
@@ -14,9 +17,6 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-latest
-    env:
-      # A fine-grained token with Contents: write on fontnelle/homebrew-tap only.
-      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,11 +24,11 @@ jobs:
       - name: Check tag matches VERSION and CHANGELOG
         run: |
           v=$(sed -n 's/^VERSION="\(.*\)"/\1/p' dudu)
-          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != VERSION $v"; exit 1; }
+          [ "win-v$v" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != VERSION $v"; exit 1; }
           packaging/release-notes.sh --title "$v"
       - name: Build
         run: |
-          v=${GITHUB_REF_NAME#v}
+          v=${GITHUB_REF_NAME#win-v}
           mkdir -p dist
           git archive --format=tar.gz --prefix=dudu-$v/ -o dist/dudu-$v.tar.gz HEAD
           cd dist && sha256sum dudu-$v.tar.gz > SHA256SUMS
@@ -36,21 +36,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          v=${GITHUB_REF_NAME#v}
+          v=${GITHUB_REF_NAME#win-v}
           packaging/release-notes.sh "$v" > dist/notes.md
-          gh release create "$GITHUB_REF_NAME" dist/dudu-$v.tar.gz dist/SHA256SUMS \
+          gh release create "$GITHUB_REF_NAME" dist/dudu-$v.tar.gz dist/SHA256SUMS --latest=false \
             --title "$(packaging/release-notes.sh --title "$v")" --notes-file dist/notes.md
-      - name: Update the Homebrew tap
-        if: env.TAP_TOKEN != ''
-        run: |
-          v=${GITHUB_REF_NAME#v}
-          sha=$(cut -d' ' -f1 dist/SHA256SUMS)
-          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/fontnelle/homebrew-tap.git" tap
-          mkdir -p tap/Formula
-          sed -e "s/@VERSION@/$v/g" -e "s/@SHA256@/$sha/" packaging/homebrew/dudu.rb > tap/Formula/dudu.rb
-          cd tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/dudu.rb
-          git commit -m "⬆️ build: dudu $v"
-          git push

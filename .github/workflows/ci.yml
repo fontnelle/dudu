@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, windows]
   pull_request:
   workflow_call:
 
@@ -38,6 +38,40 @@ jobs:
           DUDU_NO_UPDATE_CHECK: "1"
           NO_COLOR: "1"
         run: ./dudu restore --file tests/fixtures/mac-bundle --dry-run -y
+
+  # Git Bash on Windows: the edition this branch is for.
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          git clone --depth 1 https://github.com/bats-core/bats-core.git "$RUNNER_TEMP/bats"
+          echo "$RUNNER_TEMP/bats/bin" >> "$GITHUB_PATH"
+          choco install -y --no-progress shellcheck make
+      - run: make lint
+      - run: make test
+      - name: Smoke test
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: |
+          ./dudu --version
+          ./dudu backup --only shell,git,terminal,winget
+          ./dudu restore --dry-run --only shell,git,terminal
+          ./dudu status --only shell,git,terminal
+      - name: Smoke test (a Mac backup restored on Windows)
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: ./dudu restore --file tests/fixtures/mac-bundle --dry-run -y
+      - name: Installer in Git Bash (this checkout)
+        run: |
+          bash -n install.sh
+          ./dudu schedule status
 
   # macOS ships bash 3.2 as /bin/bash: dudu must keep working there.
   bash32:

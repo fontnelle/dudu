@@ -23,9 +23,16 @@ version_gt() {
   }'
 }
 
+# The newest release of this edition: the first win-v tag in the release list (newest first).
 latest_version() {
-  curl -fsSL --max-time 5 "https://api.github.com/repos/$DUDU_REPO/releases/latest" 2>/dev/null |
-    sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' | head -1
+  curl -fsSL --max-time 5 "https://api.github.com/repos/$DUDU_REPO/releases?per_page=50" 2>/dev/null |
+    release_tags | head -1
+}
+
+# The versions of this edition's tags in a release list, in its order.
+release_tags() {
+  sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+    awk -v p="$DUDU_TAG_PREFIX" 'index($0, p) == 1 { print substr($0, length(p) + 1) }'
 }
 
 check_for_updates_bg() {
@@ -136,7 +143,7 @@ cmd_update() {
   # The installer of that release (not main), downloaded whole before it runs.
   local installer
   installer=$(mktemp)
-  if ! curl -fsSL "https://raw.githubusercontent.com/$DUDU_REPO/v$latest/install.sh" -o "$installer"; then
+  if ! curl -fsSL "https://raw.githubusercontent.com/$DUDU_REPO/$DUDU_TAG_PREFIX$latest/install.sh" -o "$installer"; then
     rm -f "$installer"
     err "$(t "Could not download the installer of %s" "$latest")"
     return 1

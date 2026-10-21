@@ -3,6 +3,10 @@
 
 DUDU_REPO="fontnelle/dudu"
 DUDU_HOMEPAGE="https://github.com/${DUDU_REPO}"
+# The Windows edition lives on its own branch and is released as win-vX.Y.Z, so its releases
+# never become the repository's "latest" (the macOS/Linux one).
+DUDU_BRANCH="windows"
+DUDU_TAG_PREFIX="win-v"
 DUDU_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dudu"
 DUDU_CONFIG_FILE="$DUDU_CONFIG_DIR/config"
 DUDU_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dudu"
