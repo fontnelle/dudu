@@ -1,8 +1,9 @@
+<p align="right"><b>macOS · Linux</b> · <a href="https://github.com/fontnelle/dudu/tree/windows">Windows</a></p>
+
 <div align="center">
   <h1>dudu</h1>
   <p><b>Respalda todo tu entorno de desarrollo con un comando y recupéralo en una máquina nueva con otro. Paquetes, runtimes, dotfiles y terminal, en macOS y Linux.</b></p>
   <p><a href="README.md">English</a> · <a href="README.pt-BR.md">Português</a> · Español</p>
-  <p>¿En Windows? Usa la <a href="https://github.com/fontnelle/dudu/tree/windows">rama <code>windows</code></a>.</p>
   <a href="https://github.com/fontnelle/dudu/stargazers"><img src="https://img.shields.io/github/stars/fontnelle/dudu?style=flat-square" alt="Estrellas"></a>
   <a href="https://github.com/fontnelle/dudu/releases"><img src="https://img.shields.io/github/v/release/fontnelle/dudu?label=version&style=flat-square" alt="Versión"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="Licencia"></a>
