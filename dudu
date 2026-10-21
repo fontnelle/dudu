@@ -18,6 +18,7 @@ resolve_root() {
 }
 
 DUDU_ROOT=$(resolve_root)
+DUDU_UNAME=$(uname -s)
 
 load_libs() {
   local f

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # OS and package manager detection.
 
+# ./dudu sets DUDU_UNAME once: forking uname for every check is slow in Git Bash.
 dudu_os() {
-  case "$(uname -s)" in
+  case "${DUDU_UNAME:-$(uname -s)}" in
     Darwin) echo macos ;;
     Linux) echo linux ;;
     MINGW* | MSYS* | CYGWIN*) echo windows ;;
@@ -10,10 +11,10 @@ dudu_os() {
   esac
 }
 
-is_macos() { [ "$(uname -s)" = Darwin ]; }
-is_linux() { [ "$(uname -s)" = Linux ]; }
+is_macos() { [ "${DUDU_UNAME:-$(uname -s)}" = Darwin ]; }
+is_linux() { [ "${DUDU_UNAME:-$(uname -s)}" = Linux ]; }
 # Git Bash (MSYS2), the shell dudu runs in on Windows.
-is_windows() { case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) return 0 ;; esac; return 1; }
+is_windows() { case "${DUDU_UNAME:-$(uname -s)}" in MINGW* | MSYS* | CYGWIN*) return 0 ;; esac; return 1; }
 
 # Windows paths <-> Git Bash paths (C:\Users\x <-> /c/Users/x).
 win_path() { if has cygpath; then cygpath -w "$1"; else printf '%s' "$1"; fi; }

@@ -12,6 +12,7 @@ load_dudu() {
   export XDG_CONFIG_HOME="$HOME/.config" XDG_CACHE_HOME="$HOME/.cache"
   mkdir -p "$HOME"
   VERSION="test"
+  unset DUDU_UNAME # the tests fake the OS through uname
   export NO_COLOR=1
   set -o pipefail # as in dudu itself
   local f
