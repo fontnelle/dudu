@@ -1,8 +1,9 @@
+<p align="right"><a href="https://github.com/fontnelle/dudu/tree/main">macOS · Linux</a> · <b>Windows</b></p>
+
 <div align="center">
   <h1>dudu for Windows</h1>
   <p><b>Back up your whole dev setup in one command and put it back on a new machine in another. Packages, runtimes, dotfiles and terminal, on Windows.</b></p>
   <p>English · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a></p>
-  <p>On macOS or Linux? Use the <a href="https://github.com/fontnelle/dudu/tree/main"><code>main</code> branch</a>.</p>
   <a href="https://github.com/fontnelle/dudu/stargazers"><img src="https://img.shields.io/github/stars/fontnelle/dudu?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/fontnelle/dudu/releases"><img src="https://img.shields.io/github/v/release/fontnelle/dudu?filter=win-v*&label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
