@@ -1,0 +1,3 @@
+# dudu is bash: a CRLF checkout (Git for Windows' default) would break every script.
+* text=auto eol=lf
+*.svg -text
