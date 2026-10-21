@@ -1,3 +1,5 @@
+# Recipes need a POSIX shell: GNU make on Windows would otherwise use cmd.exe.
+SHELL := bash
 VERSION := $(shell sed -n 's/^VERSION="\(.*\)"/\1/p' dudu)
 SOURCES := dudu install.sh packaging/release-notes.sh $(wildcard lib/*/*.sh) $(wildcard bin/*.sh)
 
