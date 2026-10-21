@@ -541,6 +541,7 @@ i18n_catalog_es() {
     "%s left") I18N_MSG="quedan %s" ;;
     "%s (Windows only)") I18N_MSG="%s (solo en Windows)" ;;
     "Show in Explorer?") I18N_MSG="¿Mostrar en el Explorador de archivos?" ;;
+    "Task Scheduler could not create the task %s") I18N_MSG="El Programador de tareas no pudo crear la tarea %s" ;;
     *) return 1 ;;
   esac
 }

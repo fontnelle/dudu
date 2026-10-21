@@ -62,3 +62,31 @@ setup() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"no password is stored"* ]] || false
 }
+
+@test "Windows: a Task Scheduler task that starts dudu hidden" {
+  # shellcheck disable=SC2317,SC2329
+  is_macos() { return 1; }
+  # shellcheck disable=SC2317,SC2329
+  is_windows() { return 0; }
+  # shellcheck disable=SC2317,SC2329
+  win_path() { printf 'C:%s' "$1"; }
+  cat > "$BATS_TEST_TMPDIR/bin/schtasks" <<SH
+#!/bin/sh
+echo "schtasks \$* NOCONV=\$MSYS_NO_PATHCONV" >> "$BATS_TEST_TMPDIR/calls"
+case "\$1" in
+  /Create) touch "$BATS_TEST_TMPDIR/task" ;;
+  /Delete) rm -f "$BATS_TEST_TMPDIR/task" ;;
+  /Query) [ -f "$BATS_TEST_TMPDIR/task" ] || exit 1
+          printf '<Task>\r\n<StartBoundary>2026-10-20T06:45:00</StartBoundary>\r\n</Task>\r\n' ;;
+esac
+SH
+  chmod +x "$BATS_TEST_TMPDIR/bin/schtasks"
+  DUDU_ROOT="/c/Users/O'Brien/dudu"
+  cmd_schedule on 6:45 < /dev/null
+  grep -q '^schtasks /Create /F /SC DAILY /TN dudu backup /ST 06:45 /TR wscript.exe "C:.*scheduled-backup.vbs" NOCONV=1$' "$BATS_TEST_TMPDIR/calls"
+  grep -qF -- "-lc \"\"'/c/Users/O'\\''Brien/dudu/dudu' backup --scheduled\"\"\", 0, False" "$(schedule_vbs)"
+  [ "$(schedule_time)" = "06:45" ]
+  cmd_schedule off
+  [ ! -f "$(schedule_vbs)" ]
+  run ! schedule_time
+}

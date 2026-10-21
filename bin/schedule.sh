@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# dudu schedule on [HH:MM] | off | status: a daily backup, by launchd (macOS) or a systemd
-# user timer (Linux). The scheduled run has no terminal: it uses the stored password, and
+# dudu schedule on [HH:MM] | off | status: a daily backup, by launchd (macOS), a systemd
+# user timer (Linux) or a Task Scheduler task (Windows). The scheduled run has no terminal: it uses the stored password, and
 # a failure shows a notification.
 
 SCHEDULE_LABEL="com.fontnelle.dudu"
@@ -8,6 +8,12 @@ SCHEDULE_DEFAULT="12:30"
 
 schedule_plist() { printf '%s' "$HOME/Library/LaunchAgents/$SCHEDULE_LABEL.plist"; }
 schedule_unit_dir() { printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"; }
+SCHEDULE_TASK="dudu backup"
+# The task starts this script hidden: bash.exe alone would keep a console window open.
+schedule_vbs() { printf '%s' "$DUDU_CONFIG_DIR/scheduled-backup.vbs"; }
+
+# schtasks takes /Options: Git Bash must not turn them into paths.
+schtasks_run() { MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' schtasks "$@"; }
 
 schedule_valid_time() { printf '%s\n' "$1" | grep -Eq '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'; }
 
@@ -20,6 +26,10 @@ schedule_time() {
     h=$(/usr/libexec/PlistBuddy -c 'Print :StartCalendarInterval:Hour' "$f" 2>/dev/null) || return 1
     m=$(/usr/libexec/PlistBuddy -c 'Print :StartCalendarInterval:Minute' "$f" 2>/dev/null) || return 1
     printf '%02d:%02d' "$h" "$m"
+  elif is_windows; then
+    # <StartBoundary>2026-10-20T12:30:00</StartBoundary>; the XML may come as UTF-16.
+    schtasks_run /Query /TN "$SCHEDULE_TASK" /XML 2>/dev/null | tr -d '\000\r' |
+      sed -n 's/.*<StartBoundary>[^T]*T\([0-9][0-9]:[0-9][0-9]\).*/\1/p' | head -1 | grep . || return 1
   else
     f="$(schedule_unit_dir)/dudu.timer"
     [ -f "$f" ] || return 1
@@ -92,10 +102,32 @@ EOF
   fi
 }
 
+# A daily task for this user, which runs only while they are logged on (no password needed).
+schedule_on_windows() { # <HH:MM>
+  local bash vbs dudu
+  bash=$(win_path "$(command -v bash)")
+  case "$bash" in *.exe) ;; *) bash="$bash.exe" ;; esac
+  # Single-quoted for bash -c ('\'' for a quote in the path); Windows paths have no ".
+  dudu="'$(stable_root | sed "s/'/'\\\\''/g")/dudu'"
+  vbs=$(schedule_vbs)
+  mkdir -p "$(dirname "$vbs")"
+  # "" is a quote inside a VBScript string. bash -l sets up Git Bash's PATH as a terminal does.
+  printf 'CreateObject("WScript.Shell").Run """%s"" -lc ""%s backup --scheduled""", 0, False\r\n' \
+    "$bash" "$dudu" > "$vbs"
+  if ! schtasks_run /Create /F /SC DAILY /TN "$SCHEDULE_TASK" /ST "$1" \
+       /TR "wscript.exe \"$(win_path "$vbs")\"" >/dev/null; then
+    err "$(t "Task Scheduler could not create the task %s" "$SCHEDULE_TASK")"
+    return 1
+  fi
+}
+
 schedule_off() {
   if is_macos; then
     launchctl bootout "gui/$(id -u)" "$(schedule_plist)" >/dev/null 2>&1
     rm -f "$(schedule_plist)"
+  elif is_windows; then
+    schtasks_run /Delete /F /TN "$SCHEDULE_TASK" >/dev/null 2>&1
+    rm -f "$(schedule_vbs)"
   else
     has systemctl && systemctl --user disable --now dudu.timer >/dev/null 2>&1
     rm -f "$(schedule_unit_dir)/dudu.service" "$(schedule_unit_dir)/dudu.timer"
@@ -112,6 +144,17 @@ on run argv
   display notification (item 1 of argv) with title "dudu backup"
 end run
 APPLESCRIPT
+  elif is_windows && has powershell.exe; then
+    # A toast under PowerShell's name: Windows shows toasts only for apps it knows.
+    DUDU_MSG=$1 powershell.exe -NoProfile -NonInteractive -Command '
+      $m = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+      $x = $m::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+      $t = $x.GetElementsByTagName("text")
+      [void]$t.Item(0).AppendChild($x.CreateTextNode("dudu backup"))
+      [void]$t.Item(1).AppendChild($x.CreateTextNode($env:DUDU_MSG))
+      $id = "{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe"
+      $m::CreateToastNotifier($id).Show([Windows.UI.Notifications.ToastNotification]::new($x))
+    ' >/dev/null 2>&1
   elif has notify-send; then
     notify-send "dudu backup" "$1" >/dev/null 2>&1
   fi
@@ -140,7 +183,9 @@ cmd_schedule() {
         err "$(t "Backups are encrypted but no password is stored: run dudu config set encrypt on first")"
         return 1
       fi
-      if is_macos; then schedule_on_macos "$t" || return 1; else schedule_on_linux "$t" || return 1; fi
+      if is_macos; then schedule_on_macos "$t" || return 1
+      elif is_windows; then schedule_on_windows "$t" || return 1
+      else schedule_on_linux "$t" || return 1; fi
       ok "$(t "Daily backup at %s" "$t")"
       dim "  $(t "It runs without a terminal: failures show a notification and go to %s." "$(tilde "$DUDU_LOG")")"
       # Notes asks for permission once; a scheduled run cannot answer that prompt.
