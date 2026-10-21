@@ -63,6 +63,10 @@ jobs:
           ./dudu backup --only shell,git,terminal,winget
           ./dudu restore --dry-run --only shell,git,terminal
           ./dudu status --only shell,git,terminal
+      - name: Real Windows APIs (registry, Credential Manager, Task Scheduler)
+        env:
+          DUDU_REAL_WINDOWS: "1"
+        run: bats tests/windows_real.bats
       - name: Smoke test (a Mac backup restored on Windows)
         env:
           DUDU_NO_UPDATE_CHECK: "1"
