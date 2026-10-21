@@ -36,6 +36,8 @@ setup() {
 @test "Linux: a systemd user timer" {
   # shellcheck disable=SC2317,SC2329
   is_macos() { return 1; }
+  # shellcheck disable=SC2317,SC2329
+  is_windows() { return 1; }
   cmd_schedule on 23:30 < /dev/null
   grep -q '^OnCalendar=\*-\*-\* 23:30:00$' "$(schedule_unit_dir)/dudu.timer"
   grep -q 'backup --scheduled' "$(schedule_unit_dir)/dudu.service"
@@ -48,6 +50,8 @@ setup() {
 @test "a Homebrew install schedules the path that survives brew upgrade" {
   # shellcheck disable=SC2317,SC2329
   is_macos() { return 1; }
+  # shellcheck disable=SC2317,SC2329
+  is_windows() { return 1; }
   DUDU_ROOT=/opt/homebrew/Cellar/dudu/0.2.0/libexec
   cmd_schedule on 08:00 < /dev/null
   grep -qF 'ExecStart="/opt/homebrew/opt/dudu/libexec/dudu" backup --scheduled' "$(schedule_unit_dir)/dudu.service"

@@ -44,6 +44,8 @@ setup() { load_dudu; b="$BATS_TEST_TMPDIR/backup"; mkdir -p "$b/home"; }
   ls "$HOME"/.zshrc.dudu-bak.* >/dev/null
   echo real > "$BATS_TEST_TMPDIR/repo-zshrc"
   rm "$HOME/.zshrc" && ln -s "$BATS_TEST_TMPDIR/repo-zshrc" "$HOME/.zshrc"
+  # Git Bash without Developer Mode copies instead of linking.
+  [ -L "$HOME/.zshrc" ] || skip "no symlinks here"
   run restore_home "$b/home"
   [ "$(cat "$BATS_TEST_TMPDIR/repo-zshrc")" = real ]
   [[ "$output" == *"is a symlink"* ]] || false

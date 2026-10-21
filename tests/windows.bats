@@ -294,6 +294,8 @@ esac'
 @test "without winget, formulas go to scoop under their own name" {
   mac_bundle_on_windows
   rm "$BATS_TEST_TMPDIR/bin/winget"
+  # The real winget too, on a Windows machine.
+  has() { [ "$1" != winget ] && command -v "$1" >/dev/null 2>&1; }
   run crossos_windows_plan "$B/brew/Brewfile"
   [[ "$output" == *"scoop|git|git"* ]] || false
   [[ "$output" == *"scoop|slack|slack (cask)"* ]] || false

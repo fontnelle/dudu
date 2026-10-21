@@ -159,7 +159,8 @@ setup_and_show() {
 @test "rclone's config, which holds the Google token, ends up readable only by the user" {
   run setup_and_show <<< $'\nn'
   [ "$status" -eq 0 ]
-  [ -n "$(find "$FAKE/rclone.conf" -perm 600)" ]
+  # NTFS has no file modes: on Windows the file stays in the user's private AppData.
+  is_windows || [ -n "$(find "$FAKE/rclone.conf" -perm 600)" ]
   [[ "$output" == *"only you can read"* ]] || false
 }
 

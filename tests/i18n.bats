@@ -6,9 +6,11 @@ load helpers
 setup() {
   load_dudu
   unset DUDU_LANG LANGUAGE LC_ALL LC_MESSAGES LANG
-  # macOS answers from System Settings: keep this machine's own choice out of the tests.
+  # macOS and Windows answer from their settings: keep this machine's own choice out of the tests.
   # shellcheck disable=SC2317,SC2329 # called by i18n_init
   i18n_apple_language() { return 1; }
+  # shellcheck disable=SC2317,SC2329 # called by i18n_init
+  i18n_windows_language() { return 1; }
 }
 
 lang_of() { i18n_init; printf '%s %s' "$DUDU_LANG_ACTIVE" "$DUDU_LANG_SOURCE"; }
