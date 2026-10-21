@@ -539,6 +539,7 @@ i18n_catalog_pt_BR() {
     "Google Drive connected") I18N_MSG="Google Drive conectado" ;;
     "You can close this tab and go back to the terminal: dudu carries on with the checks.") I18N_MSG="Pode fechar esta aba e voltar ao terminal: o dudu segue com as verificações." ;;
     "%s left") I18N_MSG="faltam %s" ;;
+    "%s (Windows only)") I18N_MSG="%s (só no Windows)" ;;
     *) return 1 ;;
   esac
 }

@@ -50,7 +50,7 @@ _dudu() {
   for c in backup restore status outdated secrets schedule config update completion; do
     commands+=("$c:$d[$c]")
   done
-  collectors=(brew syspkgs shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos)
+  collectors=(brew syspkgs winget scoop choco shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos)
 
   if (( CURRENT == 2 )); then
     _describe 'command' commands

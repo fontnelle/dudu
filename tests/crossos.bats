@@ -10,6 +10,7 @@ FIXTURE="$DUDU_ROOT/tests/fixtures/mac-bundle"
 setup() {
   load_dudu
   is_macos() { return 1; }
+  is_linux() { return 0; }
   dudu_os() { echo linux; }
   linux_pm() { echo apt; }
   # The repositories have git and fd-find; nothing is installed yet; no Homebrew here.

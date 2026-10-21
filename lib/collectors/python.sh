@@ -2,10 +2,15 @@
 # Python: pyenv versions, pipx and uv tools, pip --user packages, pip config.
 
 # On macOS /usr/bin/python3 is a stub that may pop up the Xcode tools installer.
+# On Windows python3 may be the Microsoft Store alias, which only says Python is not installed.
 python_real() {
   has python3 || return 1
+  if is_windows; then python3 -c pass >/dev/null 2>&1; return; fi
   ! is_macos || [ "$(command -v python3)" != /usr/bin/python3 ] || xcode-select -p >/dev/null 2>&1
 }
+
+# python.org's Windows installer has python and the py launcher, but no python3.
+if is_windows && has py; then python3() { py -3 "$@"; }; fi
 
 python_detect() { has pyenv || has pipx || has uv || python_real; }
 

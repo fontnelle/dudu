@@ -7,6 +7,12 @@ editor_cli() { # <cli> <App Name>
   if has "$1"; then command -v "$1"; return 0; fi
   local p="/Applications/$2.app/Contents/Resources/app/bin/$1"
   [ -x "$p" ] && { printf '%s' "$p"; return 0; }
+  # The per-user Windows installers, when their bin folder is not in PATH.
+  if is_windows; then
+    for p in "$(win_localappdata)/Programs/Microsoft VS Code/bin/$1" "$(win_localappdata)/Programs/$1/resources/app/bin/$1"; do
+      [ -x "$p" ] && { printf '%s' "$p"; return 0; }
+    done
+  fi
   # VS Code from Flathub (a Mac's cask restored on Linux) exports its command here.
   if [ "$1" = code ]; then
     for p in "$HOME/.local/share/flatpak/exports/bin/com.visualstudio.code" /var/lib/flatpak/exports/bin/com.visualstudio.code; do
@@ -16,9 +22,17 @@ editor_cli() { # <cli> <App Name>
   return 1
 }
 
+# Where this OS keeps an editor's User folder, relative to HOME.
+editor_user_rel() { # <config dir name>
+  if is_macos; then printf 'Library/Application Support/%s/User' "$1"
+  elif is_windows; then printf 'AppData/Roaming/%s/User' "$1"
+  else printf '.config/%s/User' "$1"
+  fi
+}
+
 editor_user_dir() { # <config dir name>
-  if is_macos; then
-    printf '%s' "$HOME/Library/Application Support/$1/User"
+  if is_macos || is_windows; then
+    printf '%s' "$HOME/$(editor_user_rel "$1")"
   else
     printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/$1/User"
   fi
@@ -37,17 +51,20 @@ editor_backup() { # <cli> <App Name> <config dir> <backup dir>
   summary "$4" "$(tn "%d extension + settings" "%d extensions + settings" "$(count_lines "$4/extensions.txt")")"
 }
 
-# Editor settings from the other OS: "Library/Application Support/Code/User/..." (macOS)
-# and ".config/Code/User/..." (Linux) are the same files, moved to where this OS reads them.
+# Editor settings from another OS: "Library/Application Support/Code/User/..." (macOS),
+# ".config/Code/User/..." (Linux) and "AppData/Roaming/Code/User/..." (Windows) are the same
+# files, moved to where this OS reads them.
 editor_home_for_this_os() { # <backup home> <out dir>
-  local f rel
+  local f rel tail
   while IFS= read -r f; do
     rel=${f#"$1"/}
-    if is_macos; then
-      case "$rel" in .config/*/User/*) rel="Library/Application Support/${rel#.config/}" ;; esac
-    else
-      case "$rel" in "Library/Application Support/"*/User/*) rel=".config/${rel#Library/Application Support/}" ;; esac
-    fi
+    tail=""
+    case "$rel" in
+      "Library/Application Support/"*/User/*) tail=${rel#Library/Application Support/} ;;
+      .config/*/User/*) tail=${rel#.config/} ;;
+      AppData/Roaming/*/User/*) tail=${rel#AppData/Roaming/} ;;
+    esac
+    [ -n "$tail" ] && rel="$(editor_user_rel "${tail%%/*}")/${tail#*/User/}"
     mkdir -p "$2/$(dirname "$rel")"
     cp "$f" "$2/$rel"
   done < <(find "$1" -type f 2>/dev/null)
@@ -63,7 +80,10 @@ Library/Application Support/*/User/keybindings.json
 Library/Application Support/*/User/snippets/*
 .config/*/User/settings.json
 .config/*/User/keybindings.json
-.config/*/User/snippets/*"
+.config/*/User/snippets/*
+AppData/Roaming/*/User/settings.json
+AppData/Roaming/*/User/keybindings.json
+AppData/Roaming/*/User/snippets/*"
   rm -rf "$home"
   [ -s "$3/extensions.txt" ] || return 0
   local cli e

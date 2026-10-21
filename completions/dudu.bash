@@ -4,7 +4,7 @@ _dudu() {
   local cur=${COMP_WORDS[COMP_CWORD]}
   local prev=${COMP_WORDS[COMP_CWORD-1]}
   local commands="backup restore status outdated secrets schedule config update completion --help --version"
-  local collectors="brew syspkgs shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos"
+  local collectors="brew syspkgs winget scoop choco shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos"
 
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "$commands" -- "$cur"))

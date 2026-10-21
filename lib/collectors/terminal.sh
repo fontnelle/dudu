@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Terminal apps: Terminal.app and iTerm2 profiles (macOS), Ghostty, Alacritty, Kitty, WezTerm,
-# plus the list of Nerd Fonts the prompt depends on.
+# Terminal apps: Terminal.app and iTerm2 profiles (macOS), Windows Terminal, Ghostty, Alacritty,
+# Kitty, WezTerm, plus the list of Nerd Fonts the prompt depends on.
 
 # One path per line (some contain spaces).
 TERMINAL_FILES=".config/ghostty/config
@@ -10,13 +10,21 @@ TERMINAL_FILES=".config/ghostty/config
 .wezterm.lua
 .config/wezterm/wezterm.lua
 .hyper.js
-Library/Application Support/com.mitchellh.ghostty/config"
+Library/Application Support/com.mitchellh.ghostty/config
+AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json
+AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json
+AppData/Local/Microsoft/Windows Terminal/settings.json
+AppData/Roaming/alacritty/alacritty.toml"
 
 TERMINAL_DOMAINS="com.apple.Terminal com.googlecode.iterm2"
 
 terminal_installed_fonts() {
-  ls "$HOME/Library/Fonts" /Library/Fonts "$HOME/.local/share/fonts" "$HOME/.fonts" 2>/dev/null |
-    grep -i 'nerd' | sort -u
+  local win=""
+  is_windows && win="$(win_localappdata)/Microsoft/Windows/Fonts"
+  # shellcheck disable=SC2086
+  # A missing folder or no Nerd Font at all is an empty list, not a failure.
+  { ls "$HOME/Library/Fonts" /Library/Fonts "$HOME/.local/share/fonts" "$HOME/.fonts" ${win:+"$win"} 2>/dev/null || true; } |
+    { grep -i 'nerd' || true; } | sort -u
 }
 
 # The parts of a terminal plist a person actually sets (profiles, default profile, shell).
@@ -58,6 +66,11 @@ terminal_detect() {
   for f in .config/ghostty/config .config/alacritty .config/kitty .wezterm.lua .config/wezterm; do
     [ -e "$HOME/$f" ] && return 0
   done
+  if is_windows; then
+    while IFS= read -r f; do
+      case "$f" in AppData/*) [ -e "$HOME/$f" ] && return 0 ;; esac
+    done <<< "$TERMINAL_FILES"
+  fi
   return 1
 }
 
@@ -138,7 +151,9 @@ Library/Application Support/iTerm2/DynamicProfiles/*"
   local missing hint
   missing=$(terminal_installed_fonts | missing_from "$1/fonts.txt")
   if [ -n "$missing" ]; then
-    if is_macos; then hint="brew install --cask font-fira-code-nerd-font"; else hint="nerdfonts.com → ~/.local/share/fonts, fc-cache -f"; fi
+    if is_macos; then hint="brew install --cask font-fira-code-nerd-font"
+    elif is_windows; then hint="scoop bucket add nerd-fonts; scoop install FiraCode-NF"
+    else hint="nerdfonts.com → ~/.local/share/fonts, fc-cache -f"; fi
     warn "$(t "Your prompt used these Nerd Fonts, install them (e.g. %s):" "$hint")"
     printf '%s\n' "$missing" | head -20 | sed 's/^/    /'
   fi

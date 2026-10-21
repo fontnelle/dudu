@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Shell and prompt: dotfiles, Oh My Zsh with its custom plugins/themes, starship, tmux, vim.
+# Shell and prompt: dotfiles, Oh My Zsh with its custom plugins/themes, starship, tmux, vim,
+# and on Windows the PowerShell profiles and Git Bash's mintty settings.
 
 SHELL_FILES=".zshrc .zprofile .zshenv .zlogin .bashrc .bash_profile .profile .aliases .bash_aliases \
 .zsh_aliases .p10k.zsh .inputrc .tmux.conf .vimrc .editorconfig .hushlogin .config/starship.toml \
-.config/fish/config.fish .config/tmux/tmux.conf"
+.config/fish/config.fish .config/tmux/tmux.conf .minttyrc \
+Documents/PowerShell/Microsoft.PowerShell_profile.ps1 Documents/PowerShell/profile.ps1 \
+Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"
 
 shell_omz_dir() { printf '%s' "${ZSH:-$HOME/.oh-my-zsh}"; }
 
@@ -15,7 +18,7 @@ shell_backup() {
     save_file "$HOME/$f" "$1/home" && n=$((n + 1))
   done
   # Small config trees (fish functions, neovim), without git metadata.
-  for d in .config/fish/functions .config/fish/conf.d .config/nvim; do
+  for d in .config/fish/functions .config/fish/conf.d .config/nvim AppData/Local/nvim; do
     [ -d "$HOME/$d" ] || continue
     while IFS= read -r f; do
       save_file "$f" "$1/home" && n=$((n + 1))
@@ -70,11 +73,13 @@ shell_restore() {
 .config/fish/functions/*
 .config/fish/conf.d/*
 .config/nvim/*
+AppData/Local/nvim/*
 ${custom#"$HOME"/}/*.zsh"
 
   local want
   want=$(cat "$1/login_shell" 2>/dev/null)
-  if [ -n "$want" ] && [ "$want" != "$(basename "${SHELL:-}")" ] && has "$want"; then
+  # Git Bash has no chsh: the shell is whatever the terminal starts.
+  if [ -n "$want" ] && [ "$want" != "$(basename "${SHELL:-}")" ] && has "$want" && ! is_windows; then
     warn "$(t "Your login shell was %s. Change it with: %s" "$want" "chsh -s $(command -v "$want")")"
   fi
 }

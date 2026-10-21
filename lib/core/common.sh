@@ -10,7 +10,7 @@ DUDU_LOG="$DUDU_CACHE_DIR/dudu.log"
 DUDU_DESTINATIONS="local icloud gdrive notes"
 
 # Order matters: restore follows it (package managers first, then shell, runtimes, editors).
-DUDU_COLLECTORS="brew syspkgs shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos"
+DUDU_COLLECTORS="brew syspkgs winget scoop choco shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos"
 
 has() { command -v "$1" >/dev/null 2>&1; }
 
@@ -272,7 +272,7 @@ save_file() {
 # run code (login items, PATH shims), open SSH access or replace keys.
 DUDU_RESTORE_DENY=".ssh/authorized_keys* .ssh/id_* .ssh/known_hosts* .ssh/rc .gnupg/* .aws/* .kube/* .docker/* \
 Library/LaunchAgents/* Library/LaunchDaemons/* .config/autostart/* .config/systemd/* .local/bin/* bin/* \
-.secrets *.dudu-bak*"
+AppData/Roaming/Microsoft/Windows/Start?Menu/* .secrets *.dudu-bak*"
 
 # Text from a backup, safe to print: no escape sequences that could rewrite the screen.
 safe_text() { printf '%s' "$1" | LC_ALL=C tr -d '\000-\010\013-\037\177'; }
@@ -318,6 +318,11 @@ restore_home() { # <backup home dir> [allowed globs, one per line]
     # macOS-only places (Library/...) from a Mac backup mean nothing on Linux.
     if ! is_macos && [ "${rel#Library/}" != "$rel" ]; then
       dim "  - $(t "%s (macOS only)" "~/$(safe_text "$rel")")"
+      continue
+    fi
+    # And Windows' AppData/... means nothing on a Mac or Linux.
+    if ! is_windows && [ "${rel#AppData/}" != "$rel" ]; then
+      dim "  - $(t "%s (Windows only)" "~/$(safe_text "$rel")")"
       continue
     fi
     if [ -L "$dst" ] && [ -z "${DUDU_FOLLOW_SYMLINKS:-}" ]; then

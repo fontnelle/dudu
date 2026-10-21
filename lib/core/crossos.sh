@@ -7,7 +7,8 @@
 collector_applies() { # <collector>
   case "$1" in
     macos) is_macos ;;
-    syspkgs) ! is_macos ;;
+    syspkgs) is_linux ;;
+    winget | scoop | choco) is_windows ;;
     *) return 0 ;;
   esac
 }
@@ -17,6 +18,7 @@ os_label() { # <macos|linux>
   case "$1" in
     macos) printf 'macOS' ;;
     linux) printf 'Linux' ;;
+    windows) printf 'Windows' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -26,6 +28,7 @@ collector_os() { # <collector>
   case "$1" in
     macos) printf 'macOS' ;;
     syspkgs) printf 'Linux' ;;
+    winget | scoop | choco) printf 'Windows' ;;
   esac
 }
 

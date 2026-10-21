@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Linux system packages installed by hand (apt, dnf, pacman), plus flatpak and snap apps.
 
-syspkgs_detect() { ! is_macos && [ -n "$(linux_pm)" ]; }
+syspkgs_detect() { is_linux && [ -n "$(linux_pm)" ]; }
 
 syspkgs_list_manual() {
   case "$1" in
@@ -64,7 +64,7 @@ syspkgs_flatpak_missing() { # <list>
 }
 
 syspkgs_restore() {
-  if is_macos; then dim "  $(t "Linux only, skipped")"; return 0; fi
+  if ! is_linux; then dim "  $(t "Linux only, skipped")"; return 0; fi
   local pm saved
   pm=$(linux_pm)
   saved=$(cat "$1/manager" 2>/dev/null)
