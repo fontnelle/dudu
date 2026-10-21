@@ -53,7 +53,8 @@ jobs:
           echo "$RUNNER_TEMP/bats/bin" >> "$GITHUB_PATH"
           choco install -y --no-progress shellcheck make
       - run: make lint
-      - run: make test
+      # Not make test: Windows' make hands bats a D:/ path, and bats wants /d/.
+      - run: bats tests/
       - name: Smoke test
         env:
           DUDU_NO_UPDATE_CHECK: "1"
