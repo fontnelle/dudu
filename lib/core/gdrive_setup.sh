@@ -58,6 +58,20 @@ gdrive_setup_rclone() {
       fi
       confirm "  $(t "dudu reaches Google Drive through rclone. Install it with %s?" "brew install rclone")" || return 1
       brew install rclone
+    elif is_windows; then
+      pm=$(win_pm)
+      if [ -z "$pm" ]; then
+        step_row fail rclone "$(t "install it from %s, then run %s again" "https://rclone.org/install/" "dudu config gdrive")"
+        return 1
+      fi
+      confirm "  $(t "dudu reaches Google Drive through rclone. Install it with %s?" "$pm")" || return 1
+      case "$pm" in
+        winget) winget_install Rclone.Rclone ;;
+        scoop) scoop install rclone ;;
+        choco) choco install -y rclone ;;
+      esac
+      # winget links new commands here; this terminal's PATH may not have it yet.
+      has rclone || PATH="$PATH:$(win_localappdata)/Microsoft/WinGet/Links"
     else
       pm=$(linux_pm)
       if [ -z "$pm" ]; then
@@ -248,8 +262,10 @@ gdrive_setup_checks() { # <remote> <host>
   fi
 
   # The Google token is in rclone's config: only this user may read it.
-  conf=$(rclone config file 2>/dev/null | tail -1)
-  if [ -f "$conf" ] && chmod 600 "$conf" && [ -n "$(find "$conf" -prune -perm 600)" ]; then
+  conf=$(rclone config file 2>/dev/null | tail -1 | tr -d '\r')
+  is_windows && conf=$(unix_path "$conf")
+  # On Windows file modes mean little: rclone keeps it in AppData, which only its user can read.
+  if [ -f "$conf" ] && { is_windows || { chmod 600 "$conf" && [ -n "$(find "$conf" -prune -perm 600)" ]; }; }; then
     step_row ok "$(t "Google token")" "$(t "only you can read %s" "$(tilde "$conf")")"
   else
     step_row warn "$(t "Google token")" "$(t "check who can read %s" "$(tilde "${conf:-rclone.conf}")")"

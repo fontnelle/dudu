@@ -5,7 +5,8 @@
 # changed byte is caught before anything is decrypted. manifest.json stays readable (host,
 # date, tools) to pick the newest backup; everything else is inside backup.enc.
 # The password never goes on a command line (visible in ps): only env vars and stdin.
-# It is kept in the macOS Keychain, the Secret Service (secret-tool) or a 600 file.
+# It is kept in the macOS Keychain, the Windows Credential Manager, the Secret Service
+# (secret-tool) or a 600 file.
 
 CRYPTO_ITER=200000
 CRYPTO_SERVICE="dudu-backup"
@@ -17,6 +18,22 @@ sha256_stdin() {
   if has shasum; then shasum -a 256 | cut -d' ' -f1; else sha256sum | cut -d' ' -f1; fi
 }
 
+# The Windows Credential Manager, through PowerShell's PasswordVault: store, read or forget.
+# The password goes in and out through an env var and stdout, never on a command line.
+crypto_win_vault() { # <store|read|forget>
+  is_windows && has powershell.exe || return 1
+  DUDU_VAULT_OP=$1 DUDU_VAULT_RES=$CRYPTO_SERVICE powershell.exe -NoProfile -NonInteractive -Command '
+    $ErrorActionPreference = "Stop"
+    [Console]::OutputEncoding = [Text.Encoding]::UTF8
+    [void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]
+    $v = New-Object Windows.Security.Credentials.PasswordVault
+    $r = $env:DUDU_VAULT_RES; $u = $env:USERNAME
+    if ($env:DUDU_VAULT_OP -ne "read") { try { $v.Remove($v.Retrieve($r, $u)) } catch {} }
+    if ($env:DUDU_VAULT_OP -eq "store") { $v.Add((New-Object Windows.Security.Credentials.PasswordCredential($r, $u, $env:DUDU_PW))) }
+    if ($env:DUDU_VAULT_OP -eq "read") { $c = $v.Retrieve($r, $u); $c.RetrievePassword(); [Console]::Out.Write($c.Password) }
+  ' 2>/dev/null | tr -d '\r'
+}
+
 crypto_store_password() { # <password>
   local pw=$1
   if is_macos && has security; then
@@ -26,6 +43,7 @@ crypto_store_password() { # <password>
     printf 'add-generic-password -U -a "%s" -s "%s" -l "dudu backup password" -w "%s"\n' \
       "$USER" "$CRYPTO_SERVICE" "$pw" | security -i >/dev/null 2>&1 && return 0
   fi
+  DUDU_PW=$1 crypto_win_vault store >/dev/null && [ "$(crypto_win_vault read)" = "$1" ] && return 0
   if has secret-tool && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     printf '%s' "$1" | secret-tool store --label="dudu backup password" service "$CRYPTO_SERVICE" 2>/dev/null && return 0
   fi
@@ -38,6 +56,7 @@ crypto_stored_password() {
   if is_macos && has security; then
     pw=$(security find-generic-password -a "$USER" -s "$CRYPTO_SERVICE" -w 2>/dev/null)
   fi
+  [ -z "$pw" ] && is_windows && pw=$(crypto_win_vault read)
   if [ -z "$pw" ] && has secret-tool && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     pw=$(secret-tool lookup service "$CRYPTO_SERVICE" 2>/dev/null)
   fi
@@ -48,6 +67,7 @@ crypto_stored_password() {
 crypto_forget_password() {
   if is_macos && has security; then security delete-generic-password -a "$USER" -s "$CRYPTO_SERVICE" >/dev/null 2>&1; fi
   if has secret-tool; then secret-tool clear service "$CRYPTO_SERVICE" >/dev/null 2>&1; fi
+  crypto_win_vault forget >/dev/null
   rm -f "$(crypto_key_file)"
   return 0
 }

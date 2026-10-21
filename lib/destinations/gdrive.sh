@@ -19,6 +19,16 @@ gdrive_root() {
   for d in "$HOME/GoogleDrive" "$HOME/Google Drive" "$HOME/gdrive"; do
     [ -d "$d" ] && { printf '%s' "$d/dudu"; return 0; }
   done
+  # Drive for desktop on Windows: a drive letter (G: by default) with My Drive in it, or
+  # the mirrored folder in the user's folder.
+  if is_windows; then
+    # shellcheck disable=SC2086 # a list of folders
+    for base in "$HOME" ${GDRIVE_LETTERS:-/g /h /i /j /k /d /e /f /l /m /n /o /p /q /r /s /t /u /v /w /x /y /z}; do
+      for d in "My Drive" "Meu Drive" "Mi unidad" "Mon Drive" "Meine Ablage" "Il mio Drive"; do
+        [ -d "$base/$d" ] && { printf '%s' "$base/$d/dudu"; return 0; }
+      done
+    done
+  fi
   return 1
 }
 

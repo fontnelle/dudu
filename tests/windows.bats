@@ -210,3 +210,50 @@ JSON
   terminal_backup "$d"
   [ -f "$d/home/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json" ]
 }
+
+@test "Google Drive for desktop is found on its drive letter" {
+  DUDU_GDRIVE_PATH=""
+  GDRIVE_LETTERS="$BATS_TEST_TMPDIR/g"
+  mkdir -p "$BATS_TEST_TMPDIR/g/Meu Drive"
+  [ "$(gdrive_root)" = "$BATS_TEST_TMPDIR/g/Meu Drive/dudu" ]
+}
+
+@test "Google Drive's mirrored folder in the user folder is found too" {
+  DUDU_GDRIVE_PATH="" GDRIVE_LETTERS="$BATS_TEST_TMPDIR/none"
+  mkdir -p "$HOME/My Drive"
+  [ "$(gdrive_root)" = "$HOME/My Drive/dudu" ]
+}
+
+@test "iCloud for Windows is a destination when its folder exists" {
+  run ! icloud_available
+  mkdir -p "$HOME/iCloudDrive"
+  icloud_available
+  [ "$(icloud_root)" = "$HOME/iCloudDrive/dudu" ]
+}
+
+@test "Apple Notes is not available on Windows" {
+  run ! notes_available
+}
+
+@test "the backup password goes to the Credential Manager when it works" {
+  VAULT="$BATS_TEST_TMPDIR/vault"
+  crypto_win_vault() {
+    case "$1" in
+      store) printf '%s' "$DUDU_PW" > "$VAULT" ;;
+      read) cat "$VAULT" 2>/dev/null ;;
+      forget) rm -f "$VAULT" ;;
+    esac
+  }
+  crypto_store_password 's3cr3t "x"'
+  [ "$(cat "$VAULT")" = 's3cr3t "x"' ]
+  [ ! -f "$(crypto_key_file)" ]
+  [ "$(crypto_stored_password)" = 's3cr3t "x"' ]
+  crypto_forget_password
+  [ ! -f "$VAULT" ]
+}
+
+@test "without the Credential Manager the password goes to a private file" {
+  crypto_win_vault() { return 1; }
+  crypto_store_password pw
+  [ "$(cat "$(crypto_key_file)")" = pw ]
+}

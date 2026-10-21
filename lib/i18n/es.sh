@@ -540,6 +540,7 @@ i18n_catalog_es() {
     "You can close this tab and go back to the terminal: dudu carries on with the checks.") I18N_MSG="Puedes cerrar esta pestaña y volver a la terminal: dudu sigue con las verificaciones." ;;
     "%s left") I18N_MSG="quedan %s" ;;
     "%s (Windows only)") I18N_MSG="%s (solo en Windows)" ;;
+    "Show in Explorer?") I18N_MSG="¿Mostrar en el Explorador de archivos?" ;;
     *) return 1 ;;
   esac
 }

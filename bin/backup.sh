@@ -386,6 +386,10 @@ backup_done_summary() { # <bundle> <saved count> <seconds>
       echo
       confirm "$(t "Open Notes?")" && open -a Notes
     fi
+  elif is_windows && [ -n "$first_dir" ] && [ -t 0 ] && [ -t 1 ] && [ -z "${DUDU_YES:-}" ]; then
+    echo
+    # explorer.exe returns 1 even when it opened the folder.
+    confirm "$(t "Show in Explorer?")" && { explorer.exe "$(win_path "$first_dir")" || true; }
   fi
   return 0
 }
