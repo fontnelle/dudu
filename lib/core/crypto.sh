@@ -66,8 +66,9 @@ crypto_stored_password() {
 
 crypto_forget_password() {
   if is_macos && has security; then security delete-generic-password -a "$USER" -s "$CRYPTO_SERVICE" >/dev/null 2>&1; fi
-  if has secret-tool; then secret-tool clear service "$CRYPTO_SERVICE" >/dev/null 2>&1; fi
-  crypto_win_vault forget >/dev/null
+  # Each store may not be there or may have nothing to forget: that is fine.
+  if has secret-tool; then secret-tool clear service "$CRYPTO_SERVICE" >/dev/null 2>&1 || true; fi
+  crypto_win_vault forget >/dev/null || true
   rm -f "$(crypto_key_file)"
   return 0
 }
