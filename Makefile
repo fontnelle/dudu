@@ -1,6 +1,7 @@
 # Recipes need a POSIX shell: GNU make on Windows would otherwise use cmd.exe.
 SHELL := bash
-VERSION := $(shell sed -n 's/^VERSION="\(.*\)"/\1/p' dudu)
+# No quotes in $(shell): GNU make on Windows hands them to the shell its own way.
+VERSION := $(subst ",,$(subst VERSION=,,$(shell grep -m1 VERSION= dudu)))
 SOURCES := dudu install.sh packaging/release-notes.sh $(wildcard lib/*/*.sh) $(wildcard bin/*.sh)
 
 .PHONY: lint test check dist install clean
