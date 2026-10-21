@@ -2,11 +2,12 @@
   <h1>dudu</h1>
   <p><b>Back up your whole dev setup in one command and put it back on a new machine in another. Packages, runtimes, dotfiles and terminal, on macOS and Linux.</b></p>
   <p>English · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a></p>
+  <p>On Windows? Use the <a href="https://github.com/fontnelle/dudu/tree/windows"><code>windows</code> branch</a>.</p>
   <a href="https://github.com/fontnelle/dudu/stargazers"><img src="https://img.shields.io/github/stars/fontnelle/dudu?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/fontnelle/dudu/releases"><img src="https://img.shields.io/github/v/release/fontnelle/dudu?label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
   <a href="https://github.com/fontnelle/dudu/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fontnelle/dudu/ci.yml?branch=main&label=tests&style=flat-square" alt="Tests"></a>
-  <a href="#quick-start"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform"></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey?style=flat-square" alt="Platform"></a>
 </div>
 
 <p align="center">
@@ -26,6 +27,8 @@
 - **Pure bash, no dependencies**: works with the bash 3.2 that ships with macOS
 
 ## Quick Start
+
+**On Windows?** dudu for Windows lives on the [`windows` branch](https://github.com/fontnelle/dudu/tree/windows), with its own installer for PowerShell.
 
 **Install via Homebrew**
 
