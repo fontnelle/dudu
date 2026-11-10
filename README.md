@@ -1,7 +1,6 @@
 <p align="right"><a href="https://github.com/fontnelle/dudu/tree/main">macOS · Linux</a> · <b>Windows</b></p>
 
 <div align="center">
-  <img src="./docs/img/banner.png" alt="dudu: new machine, same setup. Back up your whole dev setup in one command, restore it in another. Free, for macOS, Linux and Windows" width="790" />
   <h1>dudu for Windows</h1>
   <p><b>Back up your whole dev setup in one command and put it back on a new machine in another. Packages, runtimes, dotfiles and terminal, on Windows.</b></p>
   <p>English · <a href="README.pt-BR.md">Português</a> · <a href="README.es.md">Español</a></p>
@@ -11,6 +10,10 @@
   <a href="https://github.com/fontnelle/dudu/actions/workflows/ci.yml?query=branch%3Awindows"><img src="https://img.shields.io/github/actions/workflow/status/fontnelle/dudu/ci.yml?branch=windows&label=tests&style=flat-square" alt="Tests"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square" alt="Platform"></a>
 </div>
+
+<p align="center">
+  <img src="./docs/img/banner.png" alt="dudu: new machine, same setup. Back up your whole dev setup in one command, restore it in another. Free, for macOS, Linux and Windows" width="790" />
+</p>
 
 dudu is written in bash, so on Windows it runs in **Git Bash** (part of Git for Windows, which most dev machines already have). The installer sets it up when it is missing, and `dudu` then works from PowerShell, cmd and Git Bash alike.
 

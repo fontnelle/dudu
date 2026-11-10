@@ -1,7 +1,6 @@
 <p align="right"><a href="https://github.com/fontnelle/dudu/tree/main">macOS · Linux</a> · <b>Windows</b></p>
 
 <div align="center">
-  <img src="./docs/img/banner.png" alt="dudu: máquina nova, mesmo ambiente. Faça backup de todo o seu ambiente de desenvolvimento com um comando e restaure com outro. Gratuito, para macOS, Linux e Windows" width="790" />
   <h1>dudu para Windows</h1>
   <p><b>Faça backup de todo o seu ambiente de desenvolvimento com um comando e devolva tudo numa máquina nova com outro. Pacotes, runtimes, dotfiles e terminal, no Windows.</b></p>
   <p><a href="README.md">English</a> · Português · <a href="README.es.md">Español</a></p>
@@ -11,6 +10,10 @@
   <a href="https://github.com/fontnelle/dudu/actions/workflows/ci.yml?query=branch%3Awindows"><img src="https://img.shields.io/github/actions/workflow/status/fontnelle/dudu/ci.yml?branch=windows&label=tests&style=flat-square" alt="Testes"></a>
   <a href="#começando"><img src="https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square" alt="Plataforma"></a>
 </div>
+
+<p align="center">
+  <img src="./docs/img/banner.png" alt="dudu: máquina nova, mesmo ambiente. Faça backup de todo o seu ambiente de desenvolvimento com um comando e restaure com outro. Gratuito, para macOS, Linux e Windows" width="790" />
+</p>
 
 O dudu é escrito em bash, então no Windows ele roda no **Git Bash** (que vem com o Git for Windows, já presente na maioria das máquinas de dev). O instalador configura o Git Bash se ele faltar, e o `dudu` passa a funcionar tanto no PowerShell quanto no cmd e no Git Bash.
 
