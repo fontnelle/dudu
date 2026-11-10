@@ -1,6 +1,7 @@
 <p align="right"><a href="https://github.com/fontnelle/dudu/tree/main">macOS · Linux</a> · <b>Windows</b></p>
 
 <div align="center">
+  <img src="./docs/img/banner.png" alt="dudu: máquina nova, mesmo ambiente. Faça backup de todo o seu ambiente de desenvolvimento com um comando e restaure com outro. Gratuito, para macOS, Linux e Windows" width="790" />
   <h1>dudu para Windows</h1>
   <p><b>Faça backup de todo o seu ambiente de desenvolvimento com um comando e devolva tudo numa máquina nova com outro. Pacotes, runtimes, dotfiles e terminal, no Windows.</b></p>
   <p><a href="README.md">English</a> · Português · <a href="README.es.md">Español</a></p>
