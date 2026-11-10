@@ -83,15 +83,18 @@ setup() {
 }
 
 @test "real: Documents is a folder that exists" {
+  # From the real profile folder (USERPROFILE), not the test's HOME.
   d=$(win_documents)
   [ -d "$d" ]
   case "$d" in /*) ;; *) false ;; esac
 }
 
 @test "real: the PATH refresh keeps Windows' own folders and adds new ones" {
-  PATH="/usr/bin:/bin"
+  # Only what is needed to ask Windows: its own folders must come back from the registry.
+  PATH="/usr/bin:/bin:$(dirname "$(command -v powershell.exe)")"
+  run ! has reg
   win_refresh_path
-  [[ ":$PATH:" == *"/Windows/System32:"* ]] || [[ ":$PATH:" == *"/WINDOWS/system32:"* ]] || false
+  printf '%s' "$PATH" | tr ':' '\n' | grep -qix '/c/windows/system32'
   has reg
 }
 

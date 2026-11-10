@@ -101,7 +101,9 @@ jobs:
           ./dudu config set path "$RUNNER_TEMP\\scheduled backups"
           ./dudu config set include shell,git
           ./dudu schedule on 23:58
-          ./dudu schedule status | grep -q 23:58
+          # Not "| grep -q": it stops reading early, and pipefail then fails the step.
+          st=$(./dudu schedule status)
+          case "$st" in *23:58*) ;; *) echo "$st"; exit 1 ;; esac
           dest="$(cygpath -u "$RUNNER_TEMP")/scheduled backups"
           # What the task runs, started the way Task Scheduler starts it.
           wscript.exe "$(cygpath -w "$HOME/.config/dudu/scheduled-backup.vbs")"

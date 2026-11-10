@@ -386,6 +386,9 @@ esac'
   [ "$(win_documents)" = "$HOME/OneDrive/Documents" ]
   REG_Personal='D:\Docs'
   [ "$(win_documents)" = /d/Docs ]
+  # %USERPROFILE% is the Windows profile folder, which HOME may not be.
+  REG_Personal='%USERPROFILE%\Documents' USERPROFILE='C:\Users\jo'
+  [ "$(win_documents)" = /c/Users/jo/Documents ]
 }
 
 @test "PowerShell profiles are saved from, and restored to, a moved Documents" {

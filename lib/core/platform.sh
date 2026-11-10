@@ -39,10 +39,12 @@ win_localappdata() {
 # The Documents folder as a Git Bash path. OneDrive often moves it (~/OneDrive/Documents), and
 # PowerShell reads its profiles from wherever it is.
 win_documents() {
-  local d
+  local d profile=$HOME
   d=$(win_reg 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' Personal)
+  # Git Bash's HOME is not always the Windows profile folder (a HOME set by hand, or H:).
+  [ -n "${USERPROFILE:-}" ] && profile=$(unix_path "$USERPROFILE")
   case "$d" in
-    %USERPROFILE%*) d="$HOME/$(printf '%s' "${d#%USERPROFILE%}" | sed 's#\\#/#g;s#^/*##')" ;;
+    %USERPROFILE%*) d="${profile%/}/$(printf '%s' "${d#%USERPROFILE%}" | sed 's#\\#/#g;s#^/*##')" ;;
     "") d="$HOME/Documents" ;;
     *) d=$(unix_path "$d") ;;
   esac

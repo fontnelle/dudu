@@ -33,6 +33,8 @@ dudu() {
 # Pretends to run in Git Bash on Windows: uname says MINGW64, reg answers from REG_<Value>.
 # shellcheck disable=SC2317,SC2329 # the stubs are called by the code under test
 fake_windows() {
+  # On a real Windows the profile folder is the test's HOME too.
+  unset USERPROFILE
   uname() { if [ "${1:-}" = -s ]; then echo MINGW64_NT-10.0-26100; else command uname "$@"; fi; }
   reg() {
     local name="" v
