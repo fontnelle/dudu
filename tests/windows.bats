@@ -565,7 +565,11 @@ windows_tools() {
     esac
   }
   schtasks() { return 1; }
-  powershell.exe() { echo "powershell" >> "$BATS_TEST_TMPDIR/ps-calls"; }
+  # Stands in for Windows: the folder dudu asks to have removed once it has ended goes now.
+  powershell.exe() {
+    echo "powershell" >> "$BATS_TEST_TMPDIR/ps-calls"
+    case "$*" in *rmdir*) rm -rf "$DUDU_LIB" ;; esac
+  }
   win_path() { printf '%s' "$1"; }
 }
 
