@@ -17,7 +17,7 @@ O dudu é escrito em bash, então no Windows ele roda no **Git Bash** (que vem c
 
 - **Tudo que você instalou**: pacotes do winget, do scoop e do Chocolatey, versões do Node (nvm-windows, fnm, volta), pacotes globais do npm/pnpm/yarn/bun, pipx/uv, gems, cargo, ferramentas do go, extensões do VS Code e do Cursor
 - **Seu terminal, do jeito que estava**: configurações do Windows Terminal, perfis do PowerShell, Git Bash (`.bashrc`, `.minttyrc`), Starship, Neovim, WezTerm, Alacritty, Nerd Fonts, config do git e do SSH
-- **Salvo onde você já está**: pasta local, Google Drive e iCloud para Windows, vários ao mesmo tempo
+- **Salvo onde você já está**: pasta local, OneDrive, Google Drive e iCloud para Windows, vários ao mesmo tempo
 - **Muda de sistema**: o backup de um Mac restaura aqui (o Homebrew vira winget e scoop), e um backup do Windows restaura num Mac ou no Linux
 - **Segredos ficam em casa**: tokens nos dotfiles são mascarados, arquivos de chave nunca são copiados, e o `dudu secrets` tira as chaves do seu `.bashrc`
 - **Criptografado, se você quiser**: AES-256 com uma senha guardada no Gerenciador de Credenciais do Windows
@@ -28,13 +28,26 @@ O dudu é escrito em bash, então no Windows ele roda no **Git Bash** (que vem c
 
 ## Começando
 
-**Instale pelo PowerShell**
+**O jeito fácil: baixar e dar dois cliques**
+
+1. Baixe o [`dudu-setup.cmd`](https://github.com/fontnelle/dudu/releases/download/win-v0.2.0/dudu-setup.cmd).
+2. Dê dois cliques nele. O Windows pode avisar que o arquivo veio da internet: escolha **Mais informações › Executar assim mesmo** (ou **Executar**).
+3. Quando terminar, abra o **Menu Iniciar** e clique em **dudu**. O menu funciona com as setas e o Enter, sem digitar nada.
+
+**Ou pelo PowerShell** (Menu Iniciar › digite `PowerShell` › Enter), cole esta linha e aperte Enter:
 
 ```powershell
 irm https://raw.githubusercontent.com/fontnelle/dudu/windows/install.ps1 | iex
 ```
 
-Ele instala o Git for Windows com o winget se faltar o Git Bash, instala o dudu e coloca o `dudu` no PATH do PowerShell e do cmd. Depois, abra um terminal novo.
+Os dois fazem o mesmo: instalam o Git for Windows se faltar o Git Bash (com o winget, ou direto das releases do Git quando não há winget), instalam o dudu, fazem o comando `dudu` funcionar no PowerShell e no cmd, e põem o **dudu** no Menu Iniciar. Nada precisa de administrador, exceto o instalador do Git quando o winget o instala para a máquina toda.
+
+**Com o scoop**
+
+```powershell
+scoop bucket add fontnelle https://github.com/fontnelle/scoop-bucket
+scoop install dudu
+```
 
 **Ou pelo Git Bash**
 
@@ -42,11 +55,13 @@ Ele instala o Git for Windows com o winget se faltar o Git Bash, instala o dudu 
 curl -fsSL https://raw.githubusercontent.com/fontnelle/dudu/windows/install.sh | bash
 ```
 
-Os dois conferem o release pelo `SHA256SUMS`. Para uma versão específica: `$env:DUDU_VERSION = "0.1.0"` antes do `install.ps1`, ou `| bash -s -- 0.1.0`.
+Todos conferem o release pelo `SHA256SUMS`. Para uma versão específica: `$env:DUDU_VERSION = "0.2.0"` antes do `install.ps1`, ou `| bash -s -- 0.2.0`.
 
 **Use**
 
-```bash
+Pelo Menu Iniciar, ou numa janela nova do PowerShell, do cmd ou do Git Bash:
+
+```powershell
 dudu                 # menu interativo
 dudu backup          # salva tudo nos seus destinos
 dudu restore         # na máquina nova: reinstala tudo
@@ -55,9 +70,15 @@ dudu outdated        # atualizações do winget, scoop, npm, pip, gems... e atua
 dudu secrets         # chaves nos seus arquivos de config, e como movê-las para ~/.secrets
 dudu schedule on     # um backup por dia (12:30, ou: dudu schedule on 08:00)
 dudu config          # destinos, idioma, criptografia, agendamento
+dudu doctor          # verifica se o dudu tem o que precisa, e diz o que fazer se faltar algo
+dudu uninstall       # remove o dudu (os seus backups ficam)
 ```
 
-Todos os comandos aceitam `--dry-run` e `--only brew,node,...`. O `restore` também aceita `--from <máquina>` (backup de outro computador), `--file <pasta>` (backup copiado à mão) e `--yes`. Com `--debug`, cada passo vai para `~/.cache/dudu/dudu.log`.
+Todos os comandos aceitam `--dry-run` e `--only brew,node,...`. O `restore` também aceita `--from <máquina>` (backup de outro computador), `--file <pasta>` (backup copiado à mão) e `--yes`. Com `--debug`, cada passo vai para `~/.cache/dudu/dudu.log`, que é `C:\Users\<você>\.cache\dudu\dudu.log`.
+
+**Se algo não funcionar**, rode `dudu doctor`: ele verifica o Git Bash, os gerenciadores de pacotes, o PATH, o Gerenciador de Credenciais, os destinos e o terminal, e diz em linguagem simples o que fazer em cada caso. Os símbolos do dudu precisam do Windows Terminal (que já vem no Windows 11) ou da janela do próprio Git Bash; no console antigo do Windows 10 alguns podem aparecer como quadradinhos, o que o atalho do Menu Iniciar evita.
+
+**Para desinstalar**, use `dudu uninstall`: ele remove o comando, o atalho do Menu Iniciar e o backup agendado, pergunta antes de apagar as suas configurações e nunca toca nos seus backups.
 
 ## Máquina nova, passo a passo
 
@@ -96,7 +117,8 @@ Um backup feito no Windows restaura num Mac ou no Linux do mesmo jeito: as confi
 
 | Destino | Onde | Observações |
 | --- | --- | --- |
-| Pasta local | `~/dudu-backups` ou qualquer pasta | Padrão |
+| Pasta local | `~/dudu-backups` ou qualquer pasta, também escrita do jeito do Windows (`D:\Backups`) | Padrão |
+| OneDrive | `OneDrive\dudu` | A pasta que o aplicativo do OneDrive sincroniza, que já vem com o Windows |
 | Google Drive | `Meu Drive/dudu-<máquina>` | `dudu config gdrive`, em 4 etapas (veja abaixo). O Drive for desktop é usado se estiver instalado (`G:\Meu Drive`, ou a pasta espelhada dele). Outra pasta sincronizada: `dudu config set gdrive_path <pasta>` |
 | iCloud Drive | `iCloudDrive\dudu` | Com o iCloud para Windows |
 
@@ -193,6 +215,10 @@ Ou pelo menu: **Configurações › Idioma**. O `RESTORE.md` de um backup sai no
 
 ## Autocompletar
 
+```powershell
+Add-Content $PROFILE 'dudu completion powershell | Out-String | Invoke-Expression'   # PowerShell
+```
+
 ```bash
 echo 'eval "$(dudu completion bash)"' >> ~/.bashrc              # Git Bash
 ```
@@ -215,10 +241,10 @@ Depois inclua o nome em `DUDU_COLLECTORS` no `lib/core/common.sh` (a ordem é a 
 
 ```bash
 make check     # shellcheck + bats + catálogos de tradução
-make install   # liga este checkout como ~/.local/bin/dudu
+make install   # liga este checkout como ~/.local/bin/dudu (macOS, Linux)
 ```
 
-Esta branch é a edição para Windows. Tudo que é específico do Windows fica atrás do `is_windows` (`lib/core/platform.sh`), então o `main` entra sem conflito, e o código continua rodando no macOS (bash 3.2) e no Linux. Os testes simulam o Windows com `fake_windows` (`tests/helpers.bash`), então o `make check` roda em qualquer lugar. O CI roda os testes no Git Bash no Windows, e no macOS, no bash 3.2, no Ubuntu, no Fedora e no Arch. Os releases recebem a tag `win-vX.Y.Z`, com as notas em [`CHANGELOG.windows.md`](CHANGELOG.windows.md).
+Esta branch é a edição para Windows. Tudo que é específico do Windows fica atrás do `is_windows` (`lib/core/platform.sh`), e o código continua rodando no macOS (bash 3.2) e no Linux. Os testes simulam o Windows com `fake_windows` (`tests/helpers.bash`), então rodam em qualquer sistema; no Git Bash do Windows, rode `make lint` e `bats tests/` (e `./dudu` direto do checkout, onde o link do `make install` não funciona). O CI roda os testes no Git Bash no Windows, e no macOS, no bash 3.2, no Ubuntu, no Fedora e no Arch. Os releases recebem a tag `win-vX.Y.Z`, com as notas em [`CHANGELOG.windows.md`](CHANGELOG.windows.md).
 
 ## Licença
 

@@ -1,0 +1,14 @@
+{
+    "version": "@VERSION@",
+    "description": "Back up and restore your dev setup: packages, runtimes, shell and editor settings.",
+    "homepage": "https://github.com/fontnelle/dudu",
+    "license": "MIT",
+    "notes": "dudu runs in Git Bash: it needs Git for Windows (scoop install git, or https://git-scm.com/download/win).",
+    "suggest": {
+        "Git for Windows": "git"
+    },
+    "url": "https://github.com/fontnelle/dudu/releases/download/win-v@VERSION@/dudu-@VERSION@.zip",
+    "hash": "@SHA256@",
+    "extract_dir": "dudu-@VERSION@",
+    "bin": "dudu.cmd"
+}

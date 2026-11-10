@@ -19,6 +19,10 @@ lint:
 	bash tests/i18n_check.sh
 	@# The version in dudu has its release notes in CHANGELOG.windows.md.
 	@packaging/release-notes.sh --title $(VERSION) >/dev/null
+	@# Windows PowerShell 5.1 may read install.ps1 as ANSI: no UTF-8 byte that is a quote there.
+	@! perl -ne 'print "install.ps1:$$.: $$_" if /[\x91-\x94]/' install.ps1 | grep .
+	@# The READMEs' link to the double-click installer names this version's release.
+	@for f in README.md README.pt-BR.md README.es.md; do grep -q "win-v$(VERSION)/dudu-setup.cmd" $$f || { echo "$$f: no link to win-v$(VERSION)/dudu-setup.cmd"; exit 1; }; done
 	@# bash 3.2 reads "$VAR" followed by a UTF-8 byte as part of the name: write "${VAR}".
 	@! perl -ne 'print "$$ARGV:$$.: $$_" if /\$$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/; close ARGV if eof' $(SOURCES) | grep .
 

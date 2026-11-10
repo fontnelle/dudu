@@ -53,15 +53,24 @@ check_for_updates_bg() {
 # Homebrew keeps dudu in its Cellar and updates it itself.
 installed_by_brew() { case "$DUDU_ROOT" in */Cellar/dudu/*) return 0 ;; esac; return 1; }
 
-# Where dudu lives, by a path that survives updates: Homebrew's opt/ link, not the Cellar
-# folder of one version.
+# Scoop keeps each version in its own folder too, and updates dudu itself.
+installed_by_scoop() { case "$DUDU_ROOT" in */scoop/apps/dudu/*) return 0 ;; esac; return 1; }
+
+# Where dudu lives, by a path that survives updates: Homebrew's opt/ link or scoop's
+# "current", not the folder of one version.
 stable_root() {
-  if installed_by_brew; then printf '%s/opt/dudu/libexec' "${DUDU_ROOT%%/Cellar/dudu/*}"; else printf '%s' "$DUDU_ROOT"; fi
+  if installed_by_brew; then printf '%s/opt/dudu/libexec' "${DUDU_ROOT%%/Cellar/dudu/*}"
+  elif installed_by_scoop; then printf '%s/scoop/apps/dudu/current' "${DUDU_ROOT%%/scoop/apps/dudu/*}"
+  else printf '%s' "$DUDU_ROOT"; fi
 }
 
 # Homebrew reads a tap's new formulas at most once a day: "brew upgrade dudu" alone right
 # after a release says the old version is current. brew update only refreshes the lists.
-update_command() { if installed_by_brew; then printf 'brew update && brew upgrade dudu'; else printf 'dudu update'; fi; }
+update_command() {
+  if installed_by_brew; then printf 'brew update && brew upgrade dudu'
+  elif installed_by_scoop; then printf 'scoop update dudu'
+  else printf 'dudu update'; fi
+}
 
 update_notice() {
   [ -f "$DUDU_LATEST_CACHE" ] || return 0
@@ -122,6 +131,11 @@ cmd_update() {
     brew update --quiet && brew upgrade dudu
     return
   fi
+  if installed_by_scoop; then
+    step "$(t "dudu was installed with scoop, running %s" "$(update_command)")"
+    scoop update dudu
+    return
+  fi
   # A git checkout updates itself with git.
   if [ -d "$DUDU_ROOT/.git" ]; then
     step "$(t "dudu is a git checkout, pulling %s" "$DUDU_ROOT")"
@@ -161,15 +175,17 @@ cmd_completion() {
   case "${1:-}" in
     zsh) cat "$DUDU_ROOT/completions/_dudu" ;;
     bash) cat "$DUDU_ROOT/completions/dudu.bash" ;;
+    powershell) cat "$DUDU_ROOT/completions/dudu.ps1" ;;
     highlight)
       # --path: the file itself, to source from ~/.zshrc without starting dudu in every shell.
       if [ "${2:-}" = --path ]; then printf '%s\n' "$(stable_root)/completions/dudu.zsh"
       else cat "$DUDU_ROOT/completions/dudu.zsh"; fi ;;
     *)
-      printf '%s: dudu completion zsh|bash|highlight\n' "$(t "Usage")"
+      printf '%s: dudu completion zsh|bash|powershell|highlight\n' "$(t "Usage")"
       echo
       echo "  zsh:  dudu completion zsh > \"\${fpath[1]}/_dudu\""
       echo "  bash: echo 'eval \"\$(dudu completion bash)\"' >> ~/.bashrc"
+      echo "  PowerShell: Add-Content \$PROFILE 'dudu completion powershell | Out-String | Invoke-Expression'"
       echo "  highlight (zsh): echo \"source \$(dudu completion highlight --path)\" >> ~/.zshrc"
       return 1
       ;;

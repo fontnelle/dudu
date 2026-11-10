@@ -500,3 +500,186 @@ esac'
   run ! grep -qx notes "$BATS_TEST_TMPDIR/dests"
   grep -qx local "$BATS_TEST_TMPDIR/dests"
 }
+
+@test "OneDrive is a destination where Windows says its folder is" {
+  unset OneDrive OneDriveConsumer OneDriveCommercial ONEDRIVE
+  run ! onedrive_available
+  mkdir -p "$HOME/od personal"
+  OneDrive="$HOME/od personal"
+  onedrive_available
+  [ "$(onedrive_root)" = "$HOME/od personal/dudu" ]
+  [ "$(dest_folder_root onedrive)" = "$HOME/od personal/dudu" ]
+  [ "$(dest_label onedrive)" = OneDrive ]
+  list_has "$(echo "$DUDU_DESTINATIONS" | tr ' ' ',')" onedrive
+}
+
+@test "a backup saved to OneDrive is found again" {
+  mkdir -p "$HOME/OneDrive"
+  unset OneDrive OneDriveConsumer OneDriveCommercial ONEDRIVE
+  b="$BATS_TEST_TMPDIR/2026-11-01_101010Z-ab12"; mkdir -p "$b/shell"
+  echo x > "$b/shell/.summary"
+  printf '{\n  "host": "pc",\n  "created": "2026-11-01T10:10:10Z",\n  "partial": false\n}\n' > "$b/manifest.json"
+  bundle_sums "$b"
+  onedrive_save "$b" pc >/dev/null
+  [ "$(onedrive_hosts)" = pc ]
+  out="$BATS_TEST_TMPDIR/out"; mkdir -p "$out"
+  onedrive_load pc "$out"
+  [ -f "$out/manifest.json" ]
+}
+
+@test "dudu installed with scoop is updated and found through scoop" {
+  DUDU_ROOT="/c/Users/x/scoop/apps/dudu/0.2.0"
+  installed_by_scoop
+  [ "$(stable_root)" = /c/Users/x/scoop/apps/dudu/current ]
+  [ "$(update_command)" = "scoop update dudu" ]
+  DUDU_ROOT="/c/Users/x/.local/share/dudu"
+  run ! installed_by_scoop
+  [ "$(update_command)" = "dudu update" ]
+}
+
+@test "the old Windows console is told from the modern terminals" {
+  # A terminal is needed to matter at all: the test's output is not one.
+  run ! legacy_console
+  unset WT_SESSION TERM_PROGRAM ConEmuPID
+  legacy_console_env
+  WT_SESSION=abc run ! legacy_console_env
+  TERM_PROGRAM=mintty run ! legacy_console_env
+}
+
+@test "dudu completion powershell prints a completer" {
+  run cmd_completion powershell
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Register-ArgumentCompleter -Native -CommandName dudu"* ]] || false
+  [[ "$output" == *"'uninstall'"* ]] || false
+}
+
+# doctor and uninstall, with Windows' own tools as stand-ins.
+windows_tools() {
+  win_is_admin() { return 1; }
+  cmd.exe() { return 0; }
+  crypto_win_vault() {
+    case "$1" in
+      store) printf '%s' "$DUDU_PW" > "$BATS_TEST_TMPDIR/vault" ;;
+      read) cat "$BATS_TEST_TMPDIR/vault" 2>/dev/null ;;
+      forget) rm -f "$BATS_TEST_TMPDIR/vault" ;;
+    esac
+  }
+  schtasks() { return 1; }
+  powershell.exe() { echo "powershell" >> "$BATS_TEST_TMPDIR/ps-calls"; }
+  win_path() { printf '%s' "$1"; }
+}
+
+@test "dudu doctor says what is there and what is missing" {
+  windows_tools
+  DUDU_ROOT="$BATS_TEST_TMPDIR/app"; mkdir -p "$DUDU_ROOT"; touch "$DUDU_ROOT/dudu.cmd"
+  mkdir -p "$DUDU_CONFIG_DIR"
+  printf 'destination=local\npath=%s\n' "$HOME/backups" > "$DUDU_CONFIG_FILE"
+  run cmd_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Windows Credential Manager"* ]] || false
+  [[ "$output" == *"only Chocolatey needs it"* ]] || false
+  [[ "$output" == *"the dudu command is in the PATH"* ]] || false
+  [[ "$output" == *"dudu is ready to use"* ]] || false
+  # Looking is all it does.
+  [ ! -e "$HOME/backups" ]
+}
+
+@test "dudu doctor fails on a destination that is not there" {
+  windows_tools
+  mkdir -p "$DUDU_CONFIG_DIR"
+  printf 'destination=icloud\n' > "$DUDU_CONFIG_FILE"
+  run cmd_doctor
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not available on this machine"* ]] || false
+  [[ "$output" == *"1 problem keeps dudu from working"* ]] || false
+}
+
+@test "dudu doctor warns when the command is not in the PATH" {
+  windows_tools
+  cmd.exe() { return 1; }
+  crypto_win_vault() { return 1; }
+  run cmd_doctor
+  [[ "$output" == *"the dudu command is not in the PATH"* ]] || false
+  [[ "$output" == *"Credential Manager does not answer"* ]] || false
+}
+
+# A dudu installed in the test's HOME, as install.sh leaves it.
+installed_copy() {
+  DUDU_ROOT="$HOME/.local/share/dudu"
+  mkdir -p "$DUDU_ROOT/lib/core" "$HOME/bin" "$DUDU_CONFIG_DIR"
+  touch "$DUDU_ROOT/dudu" "$DUDU_ROOT/lib/core/common.sh"
+  printf '#!/usr/bin/env bash\nexec "%s/dudu" "$@"\n' "$DUDU_ROOT" > "$HOME/bin/dudu"
+  printf 'destination=local\n' > "$DUDU_CONFIG_FILE"
+  mkdir -p "$HOME/dudu-backups/pc"
+}
+
+@test "dudu uninstall removes dudu and keeps settings and backups" {
+  windows_tools; installed_copy
+  run cmd_uninstall --yes
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.local/share/dudu" ]
+  [ ! -e "$HOME/bin/dudu" ]
+  [ -f "$DUDU_CONFIG_FILE" ]
+  [ -d "$HOME/dudu-backups/pc" ]
+  # The Start menu entry and the PATH are Windows' to change.
+  [ -s "$BATS_TEST_TMPDIR/ps-calls" ]
+  [[ "$output" == *"Your backups were not touched"* ]] || false
+}
+
+@test "dudu uninstall --purge also deletes settings and the stored password" {
+  windows_tools; installed_copy
+  DUDU_PW=secret crypto_win_vault store
+  run cmd_uninstall -y --purge
+  [ "$status" -eq 0 ]
+  [ ! -e "$DUDU_CONFIG_DIR" ]
+  [ ! -e "$BATS_TEST_TMPDIR/vault" ]
+  [ -d "$HOME/dudu-backups/pc" ]
+}
+
+@test "dudu uninstall asks first, and needs -y without a terminal" {
+  windows_tools; installed_copy
+  run cmd_uninstall < /dev/null
+  [ "$status" -eq 1 ]
+  [ -f "$DUDU_ROOT/dudu" ]
+}
+
+@test "dudu uninstall never deletes a folder that is not dudu's, or another dudu's command" {
+  windows_tools; installed_copy
+  printf '#!/usr/bin/env bash\nexec "/opt/other/dudu" "$@"\n' > "$HOME/bin/dudu"
+  uninstall_commands
+  [ -f "$HOME/bin/dudu" ]
+  DUDU_ROOT="$HOME"
+  run ! uninstall_program
+  [ -d "$HOME/dudu-backups" ]
+  DUDU_ROOT="$BATS_TEST_TMPDIR/not-dudu"; mkdir -p "$DUDU_ROOT"; touch "$DUDU_ROOT/keep"
+  run ! uninstall_program
+  [ -f "$DUDU_ROOT/keep" ]
+}
+
+@test "a git checkout is not deleted by dudu uninstall" {
+  windows_tools; installed_copy
+  mkdir "$DUDU_ROOT/.git"
+  run cmd_uninstall -y
+  [ "$status" -eq 0 ]
+  [ -f "$DUDU_ROOT/dudu" ]
+  [[ "$output" == *"git checkout"* ]] || false
+}
+
+@test "dudu.cmd is a batch file Windows can run: CRLF, plain ASCII, no folder of its own" {
+  f="$DUDU_ROOT/dudu.cmd"
+  run ! env LC_ALL=C grep -q '[^[:print:][:space:]]' "$f"
+  grep -qF '%~dp0' "$f"
+  run ! grep -qi 'C:\\Users' "$f"
+  # git gives it CRLF on checkout (.gitattributes), whatever the working copy has here.
+  grep -q '^\*\.cmd text eol=crlf' "$DUDU_ROOT/.gitattributes"
+}
+
+@test "the scoop manifest names the release's zip and dudu.cmd" {
+  m=$(sed -e 's/@VERSION@/9.9.9/g' -e 's/@SHA256@/abc/' "$DUDU_ROOT/packaging/scoop/dudu.json")
+  [[ "$m" == *'"version": "9.9.9"'* ]] || false
+  [[ "$m" == *'/releases/download/win-v9.9.9/dudu-9.9.9.zip"'* ]] || false
+  [[ "$m" == *'"extract_dir": "dudu-9.9.9"'* ]] || false
+  [[ "$m" == *'"bin": "dudu.cmd"'* ]] || false
+  [[ "$m" != *@* ]] || false
+  [ -f "$DUDU_ROOT/dudu.cmd" ]
+}

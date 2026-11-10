@@ -68,11 +68,12 @@ manifest_value() { # <manifest.json> <field>
 
 manifest_is_partial() { grep -q '"partial": *true' "$1" 2>/dev/null; }
 
-# Folder root of a folder-based destination (local, icloud, gdrive without rclone).
+# Folder root of a folder-based destination (local, onedrive, icloud, gdrive without rclone).
 dest_folder_root() { # <dest>
   case "$1" in
     local) local_root ;;
     icloud) icloud_root ;;
+    onedrive) onedrive_root ;;
     gdrive) [ -z "$DUDU_RCLONE_REMOTE" ] && gdrive_root ;;
     *) return 1 ;;
   esac

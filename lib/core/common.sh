@@ -11,7 +11,7 @@ DUDU_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dudu"
 DUDU_CONFIG_FILE="$DUDU_CONFIG_DIR/config"
 DUDU_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dudu"
 DUDU_LOG="$DUDU_CACHE_DIR/dudu.log"
-DUDU_DESTINATIONS="local icloud gdrive notes"
+DUDU_DESTINATIONS="local onedrive icloud gdrive notes"
 
 # Order matters: restore follows it (package managers first, then shell, runtimes, editors).
 DUDU_COLLECTORS="brew syspkgs winget scoop choco shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos"
@@ -221,6 +221,7 @@ dest_list() { printf '%s' "$DUDU_DESTINATION" | tr ',' ' '; }
 dest_label() {
   case "$1" in
     local) t "Local folder"; echo ;;
+    onedrive) echo "OneDrive" ;;
     icloud) echo "iCloud Drive" ;;
     gdrive) echo "Google Drive" ;;
     notes) echo "Apple Notes" ;;

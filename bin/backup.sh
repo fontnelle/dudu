@@ -337,6 +337,7 @@ dest_saved_dir() { # <dest> <stamp>
   case "$1" in
     local) root=$(local_root) ;;
     icloud) root=$(icloud_root) ;;
+    onedrive) root=$(onedrive_root) ;;
     gdrive) [ -z "$DUDU_RCLONE_REMOTE" ] && root=$(gdrive_root) ;;
   esac
   [ -n "$root" ] && printf '%s/%s/%s' "$root" "$DUDU_BACKUP_HOST" "$2"
@@ -346,6 +347,7 @@ dest_saved_dir() { # <dest> <stamp>
 dest_saved_where() { # <dest> <stamp>
   case "$1" in
     icloud) printf 'iCloud Drive › dudu › %s › %s' "$DUDU_BACKUP_HOST" "$2" ;;
+    onedrive) printf 'OneDrive › dudu › %s › %s' "$DUDU_BACKUP_HOST" "$2" ;;
     notes) printf 'Notes › %s › %s%s' "$NOTES_FOLDER" "$NOTES_PREFIX" "$DUDU_BACKUP_HOST" ;;
     gdrive)
       if [ -n "$DUDU_RCLONE_REMOTE" ]; then

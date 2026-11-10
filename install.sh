@@ -128,7 +128,9 @@ else
   mv "$lib_dir.new" "$lib_dir" || { [ -d "$lib_dir.old" ] && mv "$lib_dir.old" "$lib_dir"; die "Could not install dudu"; }
   rm -rf "$lib_dir.old"
 fi
-if [ -n "$windows" ]; then
+if [ "$bin_dir" = "$lib_dir" ]; then
+  : # dudu's own folder is in PATH (dudu.cmd lives there): nothing to add.
+elif [ -n "$windows" ]; then
   # Without Developer Mode, Git Bash's ln -s makes a copy, which would not find lib/.
   rm -f "$bin_dir/dudu"
   printf '#!/usr/bin/env bash\nexec "%s/dudu" "$@"\n' "$lib_dir" > "$bin_dir/dudu"
@@ -137,7 +139,10 @@ else
   ln -sf "$lib_dir/dudu" "$bin_dir/dudu"
 fi
 
-ok "dudu $("$lib_dir/dudu" --version | awk '{ print $2 }') installed in $bin_dir/dudu"
+ok "dudu $("$lib_dir/dudu" --version | awk '{ print $2 }') installed in $lib_dir"
+# Git Bash adds ~/bin to the PATH of its terminals by itself, even when this run (started
+# by install.ps1) does not have it.
+[ -n "$windows" ] && [ "$bin_dir" = "$HOME/bin" ] && PATH="$PATH:$bin_dir"
 case ":$PATH:" in
   *":$bin_dir:"*) ;;
   *) rc="~/.zshrc"; [ -n "$windows" ] && rc="~/.bashrc"

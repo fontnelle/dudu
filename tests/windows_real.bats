@@ -130,3 +130,45 @@ setup() {
   d=$(go_bin_dir)
   case "$d" in /*) ;; *) false ;; esac
 }
+
+@test "real: dudu.cmd runs dudu from cmd and gives its exit code back" {
+  w=$(cygpath -w "$DUDU_ROOT/dudu.cmd")
+  out=$(MSYS_NO_PATHCONV=1 cmd.exe /c "$w" --version | tr -d '\r')
+  [[ "$out" == dudu\ [0-9]* ]] || false
+  # An unknown command fails in dudu, and cmd sees it.
+  run env MSYS_NO_PATHCONV=1 cmd.exe /c "$w" no-such-command
+  [ "$status" -ne 0 ]
+}
+
+@test "real: dudu.cmd works from a folder with an accent and a space" {
+  d="$BATS_TEST_TMPDIR/João Silva/dudu"
+  mkdir -p "$d"
+  cp -R "$DUDU_ROOT/dudu" "$DUDU_ROOT/dudu.cmd" "$DUDU_ROOT/lib" "$DUDU_ROOT/bin" "$d/"
+  out=$(MSYS_NO_PATHCONV=1 cmd.exe /c "$(cygpath -w "$d/dudu.cmd")" --version | tr -d '\r')
+  [[ "$out" == dudu\ [0-9]* ]] || false
+}
+
+@test "real: dudu doctor finds nothing that keeps dudu from working" {
+  DUDU_NO_UPDATE_CHECK=1
+  DUDU_DESTINATION=local
+  mkdir -p "$DUDU_CONFIG_DIR"; printf 'destination=local\n' > "$DUDU_CONFIG_FILE"
+  run cmd_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Windows Credential Manager"* ]] || false
+  [[ "$output" == *"dudu is ready to use"* ]] || false
+}
+
+@test "real: the Credential Manager probe leaves nothing behind" {
+  doctor_vault
+  CRYPTO_SERVICE="dudu-doctor-$$"
+  [ -z "$(crypto_win_vault read)" ]
+}
+
+@test "real: OneDrive's folder comes from Windows, as a Git Bash path" {
+  d="$BATS_TEST_TMPDIR/One Drive"
+  mkdir -p "$d"
+  OneDriveConsumer="" OneDriveCommercial="" ONEDRIVE=""
+  OneDrive=$(cygpath -w "$d")
+  onedrive_available
+  [ "$(onedrive_root)" = "$(cygpath -u "$OneDrive")/dudu" ]
+}

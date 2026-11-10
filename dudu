@@ -2,7 +2,7 @@
 # dudu: backup and restore of your dev environment (installs, runtimes, terminal config).
 # https://github.com/fontnelle/dudu
 
-VERSION="0.1.1"
+VERSION="0.2.0"
 
 set -o pipefail
 
@@ -48,8 +48,10 @@ usage() {
   usage_row "dudu schedule on [HH:MM]" "$(t "Back up every day (%s)" "off | status")"
   usage_row "dudu config" "$(t "Choose destination & what to include")"
   usage_row "dudu config gdrive" "$(t "Connect Google Drive, step by step")"
+  usage_row "dudu doctor" "$(t "Check that dudu has what it needs here")"
   usage_row "dudu update" "$(t "Update dudu itself")"
-  printf '  %s\n' "dudu completion zsh|bash|highlight"
+  usage_row "dudu uninstall" "$(t "Remove dudu from this computer")"
+  printf '  %s\n' "dudu completion zsh|bash|powershell|highlight"
   usage_row "" "$(t "Print shell completion or highlighting")"
   printf '\n%s%s%s\n' "$BOLD" "$(t "Options")" "$NC"
   usage_row "--dry-run" "$(t "Show what would happen, change nothing")"
@@ -159,7 +161,9 @@ main() {
     secrets) cmd_secrets "$@" ;;
     schedule) cmd_schedule "$@" ;;
     config|settings) cmd_config "$@" ;;
+    doctor) cmd_doctor "$@" ;;
     update) cmd_update "$@" ;;
+    uninstall) cmd_uninstall "$@" ;;
     completion) cmd_completion "$@" ;;
     -v|--version|version) printf 'dudu %s (Windows)\n' "$VERSION" ;;
     -h|--help|help) usage ;;

@@ -3,7 +3,7 @@
 _dudu() {
   local cur=${COMP_WORDS[COMP_CWORD]}
   local prev=${COMP_WORDS[COMP_CWORD-1]}
-  local commands="backup restore status outdated secrets schedule config update completion --help --version"
+  local commands="backup restore status outdated secrets schedule config doctor update uninstall completion --help --version"
   local collectors="brew syspkgs winget scoop choco shell git terminal node npm pnpm yarn bun python ruby cargo go vscode cursor macos"
 
   if [ "$COMP_CWORD" -eq 1 ]; then
@@ -19,7 +19,8 @@ _dudu() {
     restore) COMPREPLY=($(compgen -W "--dry-run --only --from --file --yes" -- "$cur")) ;;
     config) COMPREPLY=($(compgen -W "show gdrive set" -- "$cur")) ;;
     schedule) COMPREPLY=($(compgen -W "on off status" -- "$cur")) ;;
-    completion) COMPREPLY=($(compgen -W "zsh bash highlight" -- "$cur")) ;;
+    uninstall) COMPREPLY=($(compgen -W "--yes --purge" -- "$cur")) ;;
+    completion) COMPREPLY=($(compgen -W "zsh bash powershell highlight" -- "$cur")) ;;
   esac
 }
 

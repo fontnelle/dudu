@@ -2,7 +2,7 @@ name: Release (Windows)
 
 # The Windows edition is released from the windows branch as win-vX.Y.Z. These releases are
 # never marked "latest", which stays the macOS/Linux edition's, and they do not touch the
-# Homebrew tap.
+# Homebrew tap. They update the scoop bucket (fontnelle/scoop-bucket) when its token is set.
 on:
   push:
     tags: ["win-v*"]
@@ -17,6 +17,9 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-latest
+    env:
+      # A fine-grained token with Contents: write on fontnelle/scoop-bucket only.
+      BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,12 +34,30 @@ jobs:
           v=${GITHUB_REF_NAME#win-v}
           mkdir -p dist
           git archive --format=tar.gz --prefix=dudu-$v/ -o dist/dudu-$v.tar.gz HEAD
-          cd dist && sha256sum dudu-$v.tar.gz > SHA256SUMS
+          # The zip is for scoop, and dudu-setup.cmd is the installer to double-click.
+          git archive --format=zip --prefix=dudu-$v/ -o dist/dudu-$v.zip HEAD
+          git show HEAD:dudu-setup.cmd | sed 's/\r$//; s/$/\r/' > dist/dudu-setup.cmd
+          cd dist && sha256sum dudu-$v.tar.gz dudu-$v.zip dudu-setup.cmd > SHA256SUMS
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           v=${GITHUB_REF_NAME#win-v}
           packaging/release-notes.sh "$v" > dist/notes.md
-          gh release create "$GITHUB_REF_NAME" dist/dudu-$v.tar.gz dist/SHA256SUMS --latest=false \
+          gh release create "$GITHUB_REF_NAME" dist/dudu-$v.tar.gz dist/dudu-$v.zip dist/dudu-setup.cmd \
+            dist/SHA256SUMS --latest=false \
             --title "$(packaging/release-notes.sh --title "$v")" --notes-file dist/notes.md
+      - name: Update the scoop bucket
+        if: env.BUCKET_TOKEN != ''
+        run: |
+          v=${GITHUB_REF_NAME#win-v}
+          sha=$(awk -v f="dudu-$v.zip" '$2 == f { print $1 }' dist/SHA256SUMS)
+          git clone --depth 1 "https://x-access-token:${BUCKET_TOKEN}@github.com/fontnelle/scoop-bucket.git" bucket
+          mkdir -p bucket/bucket
+          sed -e "s/@VERSION@/$v/g" -e "s/@SHA256@/$sha/" packaging/scoop/dudu.json > bucket/bucket/dudu.json
+          cd bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket/dudu.json
+          git commit -m "⬆️ build: dudu $v"
+          git push

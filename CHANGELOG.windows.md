@@ -5,6 +5,30 @@ Each release on GitHub takes its notes from here: add a `## win-vX.Y.Z · Title`
 The install commands and the changelog link are added by the release workflow.
 The macOS and Linux edition has its own [CHANGELOG.md](CHANGELOG.md).
 
+## win-v0.2.0 · Easy to install, easy to use
+
+### Added
+
+- **An installer to double-click.** Download `dudu-setup.cmd` from the release, double-click it, and it runs the installer: no PowerShell window to open, no command to paste.
+- **dudu in the Start menu.** The installer adds a dudu entry that opens the menu in Windows Terminal, or in Git Bash's own window where there is none. Backup, restore and settings work with the arrow keys and Enter, with nothing to type.
+- **`dudu doctor`** checks Git Bash, the package managers, the `dudu` command in PowerShell and cmd, the Credential Manager, your destinations, encryption, the schedule and the terminal, and says in plain words what to do about each thing that is missing.
+- **`dudu uninstall`** removes the command, the Start menu entry, the PATH entry and the scheduled backup. It asks before deleting your settings and the stored password (`--purge` does it without asking) and never touches your backups.
+- **OneDrive is a destination**: the folder the OneDrive app syncs, which Windows comes with.
+- **scoop**: `scoop bucket add fontnelle https://github.com/fontnelle/scoop-bucket`, then `scoop install dudu`. `dudu update` then runs `scoop update dudu`.
+- **Tab completion in PowerShell**: `dudu completion powershell`.
+- **A Windows without winget** gets Git for Windows from Git's own releases, installed for the current user, with no administrator.
+
+### Changed
+
+- **The `dudu` command for PowerShell and cmd is now a `dudu.cmd` inside dudu's own folder**, which finds Git Bash and dudu when it runs. No folder is written into it any more, so it keeps working when Git moves or the user folder has an accent. The installer moves the PATH entry and removes the old `%LOCALAPPDATA%\dudu` folder.
+- `install.ps1` runs the `install.sh` of the release it installs, not the one at the tip of the branch; it speaks English, Português and Español; it changes the user PATH in the registry without expanding the `%VARIABLES%` already in it; and it turns TLS 1.2 on for older Windows PowerShell.
+- While dudu runs from PowerShell or cmd, the console is set to UTF-8 (and put back afterwards), so names with accents coming from Windows tools read right.
+- The spinner uses plain characters in the old Windows console, which has no braille.
+
+### Not tested on a real machine
+
+Tested on GitHub's Windows runners only. No test covers these: the Start menu entry actually opening (it is created and its target checked), Windows' "came from the internet" warning on `dudu-setup.cmd`, the old Windows 10 console, and installing Git on a machine that has none (with winget, or from Git's releases): GitHub's runners already have it.
+
 ## win-v0.1.1 · Fixes from a full review
 
 ### Fixed

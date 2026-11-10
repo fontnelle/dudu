@@ -113,6 +113,28 @@ jobs:
           done
           ls "$dest"/*/latest || { tail -40 "$HOME/.cache/dudu/dudu.log"; exit 1; }
           ./dudu schedule off
+      - name: install.ps1's own functions (PATH in the registry, latest release)
+        if: ${{ !cancelled() }}
+        shell: powershell
+        run: |
+          $env:DUDU_PS1_FUNCTIONS_ONLY = "1"
+          Get-Content -Raw -Encoding UTF8 .\install.ps1 | Invoke-Expression
+          $v = Get-LatestVersion
+          if ("$v" -notmatch '^\d+\.\d+\.\d+$') { throw "no Windows release found: $v" }
+          # An entry is added once, an old one is dropped, and %VARIABLES% stay as written.
+          $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
+          $before = [string]$key.GetValue("Path", "", "DoNotExpandEnvironmentNames")
+          $key.SetValue("Path", ($before.TrimEnd(";") + ";%USERPROFILE%\keep-me;C:\dudu-old"), "ExpandString")
+          if (-not (Set-UserPath "C:\dudu-new" "C:\dudu-old")) { throw "Set-UserPath said nothing changed" }
+          if (Set-UserPath "C:\dudu-new" "C:\dudu-old") { throw "Set-UserPath changed the PATH twice" }
+          $after = [string]$key.GetValue("Path", "", "DoNotExpandEnvironmentNames")
+          $kind = $key.GetValueKind("Path")
+          $key.SetValue("Path", $before, "ExpandString")
+          $parts = $after -split ";"
+          if ($kind -ne "ExpandString") { throw "the PATH lost its type: $kind" }
+          if ($parts -notcontains "%USERPROFILE%\keep-me") { throw "a %VARIABLE% was expanded: $after" }
+          if ($parts -contains "C:\dudu-old") { throw "the old entry stayed: $after" }
+          if (@($parts | Where-Object { $_ -eq "C:\dudu-new" }).Count -ne 1) { throw "the new entry is not there once: $after" }
       - name: install.ps1 from Windows PowerShell, then dudu from PowerShell and cmd
         if: ${{ !cancelled() }}
         shell: powershell
@@ -121,15 +143,35 @@ jobs:
           NO_COLOR: "1"
         run: |
           $env:DUDU_SOURCE = "$PWD"
-          # As irm ... | iex runs it: the text of the script, not a file.
-          Get-Content -Raw .\install.ps1 | Invoke-Expression
+          # As irm ... | iex runs it: the text of the script, not a file. Twice: a second
+          # run must leave one PATH entry.
+          Get-Content -Raw -Encoding UTF8 .\install.ps1 | Invoke-Expression
+          Get-Content -Raw -Encoding UTF8 .\install.ps1 | Invoke-Expression
           $v = dudu --version
           if ("$v" -notmatch '^dudu \d') { throw "dudu did not run from PowerShell: $v" }
           $v = cmd /c "dudu --version"
           if ("$v" -notmatch '^dudu \d') { throw "dudu did not run from cmd: $v" }
           cmd /c "dudu backup --only shell"
           if ($LASTEXITCODE -ne 0) { throw "dudu backup failed from cmd" }
-      - name: install.ps1 from PowerShell 7, for a user folder with an accent and a space
+          # The command comes from dudu's own folder, in the user's PATH once.
+          $lib = Join-Path $env:USERPROFILE ".local\share\dudu"
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User") -split ";"
+          if (@($userPath | Where-Object { $_ -eq $lib }).Count -ne 1) { throw "PATH entries for ${lib}: $userPath" }
+          if (Test-Path (Join-Path $env:LOCALAPPDATA "dudu\bin")) { throw "the 0.1 folder is still there" }
+          # The Start menu entry starts this dudu.
+          $link = Join-Path ([Environment]::GetFolderPath("Programs")) "dudu.lnk"
+          if (-not (Test-Path $link)) { throw "no Start menu entry" }
+          $s = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
+          if (-not (Test-Path $s.TargetPath)) { throw "the Start menu entry starts nothing: $($s.TargetPath)" }
+          if ("$($s.TargetPath) $($s.Arguments)" -notmatch 'dudu') { throw "the Start menu entry is not dudu's: $($s.TargetPath) $($s.Arguments)" }
+          Write-Host "Start menu: $($s.TargetPath) $($s.Arguments)"
+          cmd /c "dudu doctor"
+          if ($LASTEXITCODE -ne 0) { throw "dudu doctor found a problem" }
+          # Tab completion loads and answers.
+          dudu completion powershell | Out-String | Invoke-Expression
+          $c = TabExpansion2 "dudu unin" 9
+          if ($c.CompletionMatches.CompletionText -notcontains "uninstall") { throw "no completion for dudu unin" }
+      - name: install.ps1 from PowerShell 7, for a user folder with an accent and a space; then uninstall
         if: ${{ !cancelled() }}
         shell: pwsh
         env:
@@ -141,14 +183,26 @@ jobs:
           $env:USERPROFILE = $u; $env:HOME = $u
           $env:LOCALAPPDATA = "$u\AppData\Local"; $env:APPDATA = "$u\AppData\Roaming"
           $env:DUDU_SOURCE = "$PWD"
-          Get-Content -Raw .\install.ps1 | Invoke-Expression
-          $shim = "$env:LOCALAPPDATA\dudu\bin\dudu.cmd"
+          Get-Content -Raw -Encoding UTF8 .\install.ps1 | Invoke-Expression
+          $lib = "$u\.local\share\dudu"
+          $shim = "$lib\dudu.cmd"
           $v = & $shim --version
           if ("$v" -notmatch '^dudu \d') { throw "dudu.cmd did not run from PowerShell: $v" }
           $v = cmd /c "`"$shim`" --version"
           if ("$v" -notmatch '^dudu \d') { throw "dudu.cmd did not run from cmd: $v" }
           & $shim backup --only shell
           if ($LASTEXITCODE -ne 0) { throw "dudu backup failed" }
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User") -split ";"
+          if ($userPath -notcontains $lib) { throw "the folder with an accent is not in the PATH: $userPath" }
+          # Uninstall: the folder, the PATH entry and the Start menu entry go; backups stay.
+          & $shim uninstall --yes --purge
+          if ($LASTEXITCODE -ne 0) { throw "dudu uninstall failed" }
+          foreach ($i in 1..15) { if (-not (Test-Path $lib)) { break }; Start-Sleep 2 }
+          if (Test-Path $lib) { throw "dudu's folder is still there" }
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User") -split ";"
+          if ($userPath -contains $lib) { throw "the PATH entry stayed: $userPath" }
+          if (Test-Path (Join-Path ([Environment]::GetFolderPath("Programs")) "dudu.lnk")) { throw "the Start menu entry stayed" }
+          if (-not (Test-Path "$u\dudu-backups")) { throw "the backups were deleted" }
 
   # macOS ships bash 3.2 as /bin/bash: dudu must keep working there.
   bash32:

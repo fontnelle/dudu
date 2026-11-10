@@ -16,6 +16,14 @@ die()  { err "$*"; exit 1; }
 dim()  { printf '%s%s%s\n' "$GRAY" "$*" "$NC"; }
 title() { printf '\n%s%s%s\n' "$BOLD" "$*" "$NC"; }
 
+# Windows' old console window (not Windows Terminal, not Git Bash's own, not an editor's):
+# its fonts lack some of the symbols dudu draws with.
+legacy_console() { [ -t 1 ] && legacy_console_env; }
+# Each modern terminal says who it is in the environment; the old console says nothing.
+legacy_console_env() {
+  is_windows && [ -z "${WT_SESSION:-}" ] && [ -z "${TERM_PROGRAM:-}" ] && [ -z "${ConEmuPID:-}" ]
+}
+
 hide_cursor() { [ -t 1 ] && printf '\033[?25l'; return 0; }
 show_cursor() { [ -t 1 ] && printf '\033[?25h'; return 0; }
 clear_screen() { [ -t 1 ] && printf '\033[H\033[2J'; return 0; }
@@ -131,6 +139,8 @@ spin() {
   rm -f "$DUDU_SPIN_STATUS"
   { [ -t 1 ] && [ -z "${DUDU_NO_SPINNER:-}" ] && [ "${TERM:-}" != dumb ]; } || show=""
   local frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+  # The old Windows console has no braille: plain characters spin there.
+  legacy_console && frames=("|" "/" "-" "\\" "|" "/" "-" "\\" "|" "/")
   # The explicit subshell matters: nvm misbehaves when a function itself is the background job.
   printf -- '--- %s %s\n' "$(date '+%H:%M:%S')" "$label" >> "$DUDU_LOG"
   ( "$@" ) >>"$DUDU_LOG" 2>&1 </dev/null &
