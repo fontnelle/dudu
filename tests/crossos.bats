@@ -126,3 +126,82 @@ setup() {
   [[ "$output" == *"Xcode (App Store)"* ]] || false
   [[ "$output" == *"~/.config/Code/User/settings.json"* ]] || false
 }
+
+# A backup as dudu for Windows makes it.
+windows_bundle() {
+  W="$BATS_TEST_TMPDIR/win-bundle"
+  mkdir -p "$W/winget" "$W/scoop" "$W/git/home/AppData/Roaming/GitHub CLI" \
+    "$W/vscode/home/AppData/Roaming/Code/User/snippets" "$W/shell/home/Documents/PowerShell" \
+    "$W/terminal/home/AppData/Local/Microsoft/Windows Terminal"
+  cat > "$W/manifest.json" <<'JSON'
+{
+  "dudu": "0.2.0",
+  "created": "2026-11-09T15:30:27Z",
+  "host": "Test-PC",
+  "machine": "000000000000",
+  "os": "windows",
+  "os_version": "Windows 11",
+  "arch": "x86_64",
+  "partial": false,
+  "collectors": ["winget", "scoop", "shell", "git", "terminal", "vscode"],
+  "carried": [],
+  "failed": []
+}
+JSON
+  printf 'Git.Git\n' > "$W/winget/packages.txt"; printf '1 package' > "$W/winget/.summary"
+  printf 'ripgrep\n' > "$W/scoop/apps.txt"; printf '1 app' > "$W/scoop/.summary"
+  printf '[user]\n\tname = Test\n' > "$W/git/home/.gitconfig"
+  printf 'editor: vim\n' > "$W/git/home/AppData/Roaming/GitHub CLI/config.yml"
+  printf '{"editor.fontSize": 14}\n' > "$W/vscode/home/AppData/Roaming/Code/User/settings.json"
+  printf '{}\n' > "$W/vscode/home/AppData/Roaming/Code/User/snippets/go.json"
+  printf 'Set-Alias g git\n' > "$W/shell/home/Documents/PowerShell/profile.ps1"
+  printf '{}\n' > "$W/terminal/home/AppData/Local/Microsoft/Windows Terminal/settings.json"
+}
+
+@test "winget, scoop and Chocolatey are Windows' tools, restored nowhere else" {
+  for c in winget scoop choco; do
+    run ! collector_applies "$c"
+    [ "$(collector_os "$c")" = Windows ]
+  done
+  [ "$(os_label windows)" = Windows ]
+}
+
+@test "a Windows backup on Linux: editor settings move, Windows' own files are set aside" {
+  windows_bundle
+  crossos_localize "$W" "$LEFT"
+  [ -f "$W/vscode/home/.config/Code/User/settings.json" ]
+  [ -f "$W/vscode/home/.config/Code/User/snippets/go.json" ]
+  [ ! -e "$W/vscode/home/AppData" ]
+  [ -f "$W/git/home/.gitconfig" ]
+  [ ! -e "$W/git/home/AppData" ]
+  [ ! -e "$W/shell/home/Documents" ]
+  [ ! -e "$W/terminal/home/AppData" ]
+  grep -qxF 'git|~/AppData/Roaming/GitHub CLI/config.yml' "$LEFT"
+  grep -qxF 'shell|~/Documents/PowerShell/profile.ps1' "$LEFT"
+  grep -qxF 'terminal|~/AppData/Local/Microsoft/Windows Terminal/settings.json' "$LEFT"
+  run ! grep -q '^vscode|' "$LEFT"
+}
+
+@test "a Windows backup on a Mac: editor settings go to Application Support" {
+  is_macos() { return 0; }
+  dudu_os() { echo macos; }
+  windows_bundle
+  crossos_localize "$W" "$LEFT"
+  [ -f "$W/vscode/home/Library/Application Support/Code/User/settings.json" ]
+  [ ! -e "$W/vscode/home/AppData" ]
+  [ ! -e "$W/git/home/AppData" ]
+  grep -qxF 'shell|~/Documents/PowerShell/profile.ps1' "$LEFT"
+}
+
+@test "restore of a Windows backup lists winget and scoop as Windows only" {
+  windows_bundle
+  run "$DUDU_ROOT/dudu" restore --file "$W" --dry-run -y
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Made on Windows: what only exists there"* ]] || false
+  [[ "$output" == *"winget"*"Windows only, not restored here"* ]] || false
+  [[ "$output" == *"scoop"*"Windows only, not restored here"* ]] || false
+  [[ "$output" == *"Left out"* ]] || false
+  [[ "$output" == *"~/Documents/PowerShell/profile.ps1"* ]] || false
+  [[ "$output" == *"Code/User/settings.json"* ]] || false
+  [[ "$output" != *"ignored unexpected file"* ]] || false
+}

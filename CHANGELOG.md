@@ -3,6 +3,13 @@
 Each release on GitHub takes its notes from here: add a `## vX.Y.Z · Title` section before tagging.
 The install commands and the changelog link are added by the release workflow.
 
+## v0.5.3 · Backups from Windows
+
+### Changed
+
+- **A backup made by [dudu for Windows](https://github.com/fontnelle/dudu/tree/windows) restores on a Mac or on Linux.** VS Code and Cursor settings, kept in `AppData\Roaming` there, go to where this system reads them. The rest of what is not tied to Windows (git, shell, node, python and so on) restores as usual.
+- **What only exists on Windows is listed, not hidden.** winget, scoop and Chocolatey show as "Windows only, not restored here". Windows Terminal settings, PowerShell profiles and other files under `AppData` and `Documents` are listed under "Left out", instead of a warning for each as an unexpected file.
+
 ## v0.5.2 · Google Drive, faster
 
 ### Changed

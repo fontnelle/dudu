@@ -37,16 +37,21 @@ editor_backup() { # <cli> <App Name> <config dir> <backup dir>
   summary "$4" "$(tn "%d extension + settings" "%d extensions + settings" "$(count_lines "$4/extensions.txt")")"
 }
 
-# Editor settings from the other OS: "Library/Application Support/Code/User/..." (macOS)
-# and ".config/Code/User/..." (Linux) are the same files, moved to where this OS reads them.
+# Editor settings from another OS: "Library/Application Support/Code/User/..." (macOS),
+# ".config/Code/User/..." (Linux) and "AppData/Roaming/Code/User/..." (Windows) are the same
+# files, moved to where this OS reads them.
 editor_home_for_this_os() { # <backup home> <out dir>
-  local f rel
+  local f rel tail
   while IFS= read -r f; do
     rel=${f#"$1"/}
-    if is_macos; then
-      case "$rel" in .config/*/User/*) rel="Library/Application Support/${rel#.config/}" ;; esac
-    else
-      case "$rel" in "Library/Application Support/"*/User/*) rel=".config/${rel#Library/Application Support/}" ;; esac
+    tail=""
+    case "$rel" in
+      "Library/Application Support/"*/User/*) tail=${rel#Library/Application Support/} ;;
+      .config/*/User/*) tail=${rel#.config/} ;;
+      AppData/Roaming/*/User/*) tail=${rel#AppData/Roaming/} ;;
+    esac
+    if [ -n "$tail" ]; then
+      if is_macos; then rel="Library/Application Support/$tail"; else rel=".config/$tail"; fi
     fi
     mkdir -p "$2/$(dirname "$rel")"
     cp "$f" "$2/$rel"

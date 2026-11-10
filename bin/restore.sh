@@ -127,7 +127,7 @@ restore_source_done() { # <bundle>
   RESTORE_CREATED=$(friendly_date "$(manifest_field "$1" created)")
   phase_done "$(manifest_field "$1" host) · $(manifest_field "$1" os_version) · dudu $(manifest_field "$1" dudu)"
   if crossos_bundle "$1"; then
-    if is_macos; then
+    if is_macos || [ "$(manifest_field "$1" os)" = windows ]; then
       dim "  $(t "Made on %s: what only exists there is listed before restoring" "$(os_label "$(manifest_field "$1" os)")")"
     else
       dim "  $(t "Made on %s: Homebrew apps become %s and Flathub packages, what has no equivalent is listed before restoring" "$(os_label "$(manifest_field "$1" os)")" "$(linux_pm)")"
@@ -187,9 +187,9 @@ restore_compare() { # <bundle> <work dir>
   RESTORE_PLAN="$2/plan"
   RESTORE_LEFT_OUT="$2/left-out"
   : > "$RESTORE_LEFT_OUT"
-  for c in $DUDU_COLLECTORS; do
+  for c in $DUDU_COLLECTORS $CROSSOS_WINDOWS_TOOLS; do
     { [ -d "$b/$c" ] && collector_enabled "$c"; } || continue
-    # A tool of the other OS only (macOS defaults on Linux): listed, never restored.
+    # A tool of another OS only (macOS defaults on Linux, winget anywhere): listed, never restored.
     if collector_applies "$c"; then
       RESTORE_ITEMS="$RESTORE_ITEMS $c"
     else

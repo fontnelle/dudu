@@ -1,22 +1,28 @@
 #!/usr/bin/env bash
-# Backups made on the other OS (a Mac's backup restored on Linux, or the reverse): what of
-# them applies here, and a Mac's Brewfile turned into this Linux's packages.
+# Backups made on another OS (a Mac's backup restored on Linux, or the reverse, or one made
+# by dudu for Windows): what of them applies here, and a Mac's Brewfile turned into this
+# Linux's packages.
 # The names that differ between Homebrew and Linux are in lib/data/brew-linux.map.
 
-# Tools of one OS only: a backup from the other one has nothing to restore here for them.
+# What dudu for Windows saves that has no tool here: listed in a restore, never restored.
+CROSSOS_WINDOWS_TOOLS="winget scoop choco"
+
+# Tools of one OS only: a backup from another one has nothing to restore here for them.
 collector_applies() { # <collector>
   case "$1" in
     macos) is_macos ;;
     syspkgs) ! is_macos ;;
+    winget | scoop | choco) return 1 ;;
     *) return 0 ;;
   esac
 }
 
-# "macOS", "Linux": the OS a backup's manifest names.
-os_label() { # <macos|linux>
+# "macOS", "Linux", "Windows": the OS a backup's manifest names.
+os_label() { # <macos|linux|windows>
   case "$1" in
     macos) printf 'macOS' ;;
     linux) printf 'Linux' ;;
+    windows) printf 'Windows' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -26,6 +32,7 @@ collector_os() { # <collector>
   case "$1" in
     macos) printf 'macOS' ;;
     syspkgs) printf 'Linux' ;;
+    winget | scoop | choco) printf 'Windows' ;;
   esac
 }
 
@@ -146,7 +153,7 @@ crossos_brew_localize() { # <brew dir> <left out file>
 # aside, and on Linux a Mac's Brewfile becomes this system's packages. What has no place here
 # goes to <left out file> as "<tool>|<what>" lines.
 crossos_localize() { # <bundle> <left out file>
-  local b=$1 c d f tmp
+  local b=$1 c f tmp
   crossos_bundle "$b" || return 0
   for c in vscode cursor; do
     [ -d "$b/$c/home" ] || continue
@@ -155,6 +162,10 @@ crossos_localize() { # <bundle> <left out file>
     rm -rf "${b:?}/$c/home"
     mv "$tmp" "$b/$c/home"
   done
+  # Windows' own places: AppData (Windows Terminal, pip.ini) and PowerShell's profiles in
+  # Documents. The editors' settings were moved out of AppData just above.
+  crossos_set_aside "$b" AppData "$2"
+  crossos_set_aside "$b" Documents "$2"
   is_macos && return 0
 
   # Ghostty reads the same config from ~/.config/ghostty on Linux.
@@ -168,13 +179,21 @@ crossos_localize() { # <bundle> <left out file>
     [ -f "$f" ] && printf 'terminal|%s\n' "$(pretty_file "defaults/$(basename "$f")")" >> "$2"
   done
   rm -rf "$b/terminal/defaults"
-  for d in "$b"/*/home/Library; do
+  crossos_set_aside "$b" Library "$2"
+  [ -f "$b/brew/Brewfile" ] && crossos_brew_localize "$b/brew" "$2"
+  return 0
+}
+
+# Takes every tool's home/<top> folder (Library, AppData) out of the bundle, listing its
+# files in <left out file>.
+crossos_set_aside() { # <bundle> <top folder> <left out file>
+  local d c
+  for d in "$1"/*/home/"$2"; do
     [ -d "$d" ] || continue
     c=$(basename "$(dirname "$(dirname "$d")")")
-    (cd "$d/.." && find Library -type f) | LC_ALL=C sort | sed "s#^#$c|~/#" >> "$2"
+    (cd "$d/.." && find "$2" -type f) | LC_ALL=C sort | sed "s#^#$c|~/#" >> "$3"
     rm -rf "$d"
   done
-  [ -f "$b/brew/Brewfile" ] && crossos_brew_localize "$b/brew" "$2"
   return 0
 }
 
