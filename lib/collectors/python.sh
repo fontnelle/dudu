@@ -17,8 +17,9 @@ python_detect() { has pyenv || has pipx || has uv || python_real; }
 python_backup() {
   local parts=""
   if has pyenv; then
-    pyenv versions --bare 2>/dev/null | awk '!/\/envs\//' > "$1/pyenv.txt" || return 1
-    pyenv global 2>/dev/null | head -1 > "$1/pyenv-global"
+    # pyenv-win writes Windows line ends.
+    pyenv versions --bare 2>/dev/null | tr -d '\r' | awk '!/\/envs\//' > "$1/pyenv.txt" || return 1
+    pyenv global 2>/dev/null | tr -d '\r' | head -1 > "$1/pyenv-global"
     parts="$parts$(count_lines "$1/pyenv.txt") pyenv versions, "
   fi
   if has pipx; then
@@ -35,6 +36,7 @@ python_backup() {
   fi
   save_file "$HOME/.config/pip/pip.conf" "$1/home"
   save_file "$HOME/.pip/pip.conf" "$1/home"
+  is_windows && save_file "$HOME/AppData/Roaming/pip/pip.ini" "$1/home"
   summary "$1" "${parts%, }"
 }
 
@@ -44,11 +46,13 @@ python_restore() {
     if has pyenv || [ -n "${DUDU_DRY_RUN:-}" ]; then
       while IFS= read -r v; do
         act pyenv install -s "$v"
-      done < <(pyenv versions --bare 2>/dev/null | missing_pkgs "$1/pyenv.txt")
+      done < <(pyenv versions --bare 2>/dev/null | tr -d '\r' | missing_pkgs "$1/pyenv.txt")
       v=$(pkg_filter < "$1/pyenv-global" 2>/dev/null | head -1)
-      if [ -n "$v" ] && [ "$v" != system ] && [ "$(pyenv global 2>/dev/null | head -1)" != "$v" ]; then
+      if [ -n "$v" ] && [ "$v" != system ] && [ "$(pyenv global 2>/dev/null | tr -d '\r' | head -1)" != "$v" ]; then
         act pyenv global "$v"
       fi
+    elif is_windows; then
+      warn "$(t "pyenv is not installed, skipping Python versions")"
     else
       warn "$(t "pyenv is not installed (it is usually in the Brewfile), skipping Python versions")"
     fi
@@ -82,7 +86,8 @@ python_restore() {
   fi
   # After the installs: a pip.conf with another index must not decide where they come from.
   restore_home "$1/home" ".config/pip/pip.conf
-.pip/pip.conf"
+.pip/pip.conf
+AppData/Roaming/pip/pip.ini"
 }
 
 python_outdated() {

@@ -18,7 +18,15 @@ is_windows() { case "${DUDU_UNAME:-$(uname -s)}" in MINGW* | MSYS* | CYGWIN*) re
 
 # Windows paths <-> Git Bash paths (C:\Users\x <-> /c/Users/x).
 win_path() { if has cygpath; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
-unix_path() { if has cygpath; then cygpath -u "$1"; else printf '%s' "$1"; fi; }
+# Without cygpath, C:\Users\x is still turned into /c/Users/x; other paths stay as they are.
+unix_path() {
+  if has cygpath; then cygpath -u "$1"; return; fi
+  case "$1" in
+    [A-Za-z]:*)
+      printf '/%s%s' "$(printf '%s' "${1%%:*}" | tr '[:upper:]' '[:lower:]')" "$(printf '%s' "${1#?:}" | sed 's#\\#/#g')" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
 
 # %APPDATA% and %LOCALAPPDATA% as Git Bash paths, with the usual default when unset.
 win_appdata() {
@@ -26,6 +34,39 @@ win_appdata() {
 }
 win_localappdata() {
   if [ -n "${LOCALAPPDATA:-}" ]; then unix_path "$LOCALAPPDATA"; else printf '%s' "$HOME/AppData/Local"; fi
+}
+
+# The Documents folder as a Git Bash path. OneDrive often moves it (~/OneDrive/Documents), and
+# PowerShell reads its profiles from wherever it is.
+win_documents() {
+  local d
+  d=$(win_reg 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' Personal)
+  case "$d" in
+    %USERPROFILE%*) d="$HOME/$(printf '%s' "${d#%USERPROFILE%}" | sed 's#\\#/#g;s#^/*##')" ;;
+    "") d="$HOME/Documents" ;;
+    *) d=$(unix_path "$d") ;;
+  esac
+  printf '%s' "${d%/}"
+}
+
+# An administrator terminal (Chocolatey and machine-wide installers need one).
+win_is_admin() { net session >/dev/null 2>&1; }
+
+# Installers change the PATH of new terminals, not of this one: take in the folders Windows
+# now lists (machine and user), so a restore can use what it has just installed.
+win_refresh_path() {
+  has powershell.exe || return 0
+  local raw d
+  raw=$(powershell.exe -NoProfile -NonInteractive -Command \
+    '[Console]::Out.Write([Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User"))' \
+    2>/dev/null | tr -d '\r') || return 0
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    d=$(unix_path "$d")
+    d=${d%/}
+    case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac
+  done < <(printf '%s\n' "$raw" | tr ';' '\n')
+  return 0
 }
 
 # One value from the Windows registry: win_reg 'HKLM\...\Key' ValueName.

@@ -5,7 +5,8 @@ pnpm_detect() { has pnpm && [ -d "$(pnpm root -g 2>/dev/null)" ]; }
 
 pnpm_backup() {
   local root
-  root=$(pnpm root -g 2>/dev/null) || return 1
+  root=$(pnpm root -g 2>/dev/null | tr -d '\r') || return 1
+  if is_windows; then root=$(unix_path "$root"); fi
   npm_list_modules "$root" | sort -u > "$1/globals.txt"
   summary "$1" "$(tn "%d global package" "%d global packages" "$(count_lines "$1/globals.txt")")"
 }
@@ -13,7 +14,7 @@ pnpm_backup() {
 pnpm_restore() {
   [ -s "$1/globals.txt" ] || return 0
   if ! has pnpm && [ -z "${DUDU_DRY_RUN:-}" ]; then
-    warn "$(t "%s is not installed (restore npm/brew first), skipping" pnpm)"
+    warn "$(tool_missing_msg pnpm npm)"
     return 0
   fi
   local pkgs

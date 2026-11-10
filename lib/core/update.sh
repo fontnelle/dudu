@@ -139,6 +139,9 @@ cmd_update() {
     return 0
   fi
   bin_dir=$(dirname "$(command -v dudu 2>/dev/null || echo "$HOME/.local/bin/dudu")")
+  # From PowerShell or cmd (dudu.cmd) Git Bash's own ~/bin is not in PATH, and the folder dudu
+  # is installed in is never where its command goes.
+  if is_windows && { ! has dudu || [ "$bin_dir" = "$DUDU_ROOT" ]; }; then bin_dir="$HOME/bin"; fi
   step "$(t "Updating dudu %s → %s" "$VERSION" "$latest")"
   # The installer of that release (not main), downloaded whole before it runs.
   local installer

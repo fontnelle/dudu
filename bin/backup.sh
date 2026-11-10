@@ -135,6 +135,14 @@ write_manifest() { # <bundle>
 EOF
 }
 
+# How to install dudu on the new machine: each system has its own edition and installer.
+restore_install_lines() {
+  echo "    # Windows (PowerShell)"
+  echo "    irm https://raw.githubusercontent.com/$DUDU_REPO/windows/install.ps1 | iex"
+  echo "    # macOS, Linux"
+  echo "    curl -fsSL https://raw.githubusercontent.com/$DUDU_REPO/main/install.sh | bash"
+}
+
 # The readable part of a backup (and of its Apple Notes note), in the language of the
 # machine that made it. restore.sh reads the "## Not backed up" heading back: it stays
 # English at the start of the line, with the translation after it.
@@ -153,7 +161,7 @@ write_restore_md() { # <bundle>
     echo
     echo "## $(t "Restore on a new machine")"
     echo
-    echo "    curl -fsSL https://raw.githubusercontent.com/$DUDU_REPO/main/install.sh | bash"
+    restore_install_lines
     echo "    dudu config     # $(t "pick the same destination")"
     echo "    dudu restore --from $DUDU_BACKUP_HOST"
     if [ -s "$DUDU_REDACT_LOG" ]; then

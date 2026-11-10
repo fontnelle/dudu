@@ -74,23 +74,55 @@ setup() {
   is_windows() { return 0; }
   # shellcheck disable=SC2317,SC2329
   win_path() { printf 'C:%s' "$1"; }
+  # shellcheck disable=SC2317,SC2329
+  has() { case "$1" in wscript.exe | conhost.exe | cygpath) return 1 ;; esac; command -v "$1" >/dev/null 2>&1; }
+  # The stand-in keeps the task file it is given (UTF-16), as readable text.
   cat > "$BATS_TEST_TMPDIR/bin/schtasks" <<SH
 #!/bin/sh
 echo "schtasks \$* NOCONV=\$MSYS_NO_PATHCONV" >> "$BATS_TEST_TMPDIR/calls"
 case "\$1" in
-  /Create) touch "$BATS_TEST_TMPDIR/task" ;;
+  /Create) while [ \$# -gt 1 ]; do [ "\$1" = /XML ] && xml=\${2#C:}; shift; done
+           head -c 2 "\$xml" | od -An -tx1 | tr -d ' \n' > "$BATS_TEST_TMPDIR/bom"
+           tail -c +3 "\$xml" | iconv -f UTF-16LE -t UTF-8 > "$BATS_TEST_TMPDIR/task" ;;
   /Delete) rm -f "$BATS_TEST_TMPDIR/task" ;;
   /Query) [ -f "$BATS_TEST_TMPDIR/task" ] || exit 1
-          printf '<Task>\r\n<StartBoundary>2026-10-20T06:45:00</StartBoundary>\r\n</Task>\r\n' ;;
+          cat "$BATS_TEST_TMPDIR/task" ;;
 esac
 SH
   chmod +x "$BATS_TEST_TMPDIR/bin/schtasks"
   DUDU_ROOT="/c/Users/O'Brien/dudu"
+  USERNAME=joe USERDOMAIN=PC MSYSTEM=MINGW64
   cmd_schedule on 6:45 < /dev/null
-  grep -q '^schtasks /Create /F /SC DAILY /TN dudu backup /ST 06:45 /TR wscript.exe "C:.*scheduled-backup.vbs" NOCONV=1$' "$BATS_TEST_TMPDIR/calls"
-  grep -qF -- "-lc \"\"'/c/Users/O'\\''Brien/dudu/dudu' backup --scheduled\"\"\", 0, False" "$(schedule_vbs)"
+  grep -q '^schtasks /Create /F /TN dudu backup /XML C:.* NOCONV=1$' "$BATS_TEST_TMPDIR/calls"
+  task="$BATS_TEST_TMPDIR/task"
+  [ "$(cat "$BATS_TEST_TMPDIR/bom")" = fffe ]
+  grep -q 'T06:45:00</StartBoundary>' "$task"
+  # A laptop: on battery too, and later when the time was missed.
+  grep -qF '<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>' "$task"
+  grep -qF '<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>' "$task"
+  grep -qF '<StartWhenAvailable>true</StartWhenAvailable>' "$task"
+  grep -qF '<UserId>PC\joe</UserId>' "$task"
+  grep -qF '<Command>wscript.exe</Command>' "$task"
+  grep -q '<Arguments>"C:.*scheduled-backup.vbs"</Arguments>' "$task"
+  vbs=$(tail -c +3 "$(schedule_vbs)" | iconv -f UTF-16LE -t UTF-8)
+  [[ "$vbs" == *"-lc \"\"'/c/Users/O'\\''Brien/dudu/dudu' backup --scheduled\"\"\", 0, False"* ]] || false
+  [[ "$vbs" == *'("MSYSTEM") = "MINGW64"'* ]] || false
   [ "$(schedule_time)" = "06:45" ]
   cmd_schedule off
   [ ! -f "$(schedule_vbs)" ]
   run ! schedule_time
+}
+
+@test "Windows: without the script host the task runs in a hidden console" {
+  # shellcheck disable=SC2317,SC2329
+  is_macos() { return 1; }
+  # shellcheck disable=SC2317,SC2329
+  is_windows() { return 0; }
+  # shellcheck disable=SC2317,SC2329
+  win_path() { printf 'C:%s' "$1"; }
+  # shellcheck disable=SC2317,SC2329
+  has() { case "$1" in wscript.exe | cygpath) return 1 ;; conhost.exe) return 0 ;; esac; command -v "$1" >/dev/null 2>&1; }
+  out=$(schedule_task_xml 12:30 conhost.exe '--headless "C:\Git\bin\bash.exe" -lc "x & y"')
+  [[ "$out" == *'<Command>conhost.exe</Command>'* ]] || false
+  [[ "$out" == *'-lc "x &amp; y"</Arguments>'* ]] || false
 }

@@ -351,3 +351,149 @@ esac'
   [ "$status" -eq 0 ]
   [[ "$output" == win-v* ]] || false
 }
+
+@test "Go tools are found from a Windows GOPATH" {
+  fake_cmd go 'case "$1 $2" in
+  "env GOBIN") printf "\r\n" ;;
+  "env GOPATH") printf "C:\\\\Users\\\\x\\\\go;D:\\\\other\r\n" ;;
+esac'
+  [ "$(go_bin_dir)" = /c/Users/x/go/bin ]
+}
+
+@test "a folder pasted the Windows way is understood" {
+  [ "$(folder_path_normalize 'C:\Users\Jo Silva\dudu')" = "/c/Users/Jo Silva/dudu" ]
+  # Explorer's "Copy as path" adds the quotes.
+  [ "$(folder_path_normalize '  "D:\Backups"  ')" = /d/Backups ]
+  [ "$(folder_path_normalize 'D:/Backups/dudu')" = /d/Backups/dudu ]
+  [ "$(folder_path_normalize '~/dudu')" = "$HOME/dudu" ]
+  run ! folder_path_error "$(folder_path_normalize 'C:\Users\Jo\dudu')"
+  run folder_path_error backups
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'C:\Users\you\dudu'* ]] || false
+}
+
+@test "dudu config set path takes a Windows path" {
+  mkdir -p "$DUDU_CONFIG_DIR"
+  printf 'destination=local\n' > "$DUDU_CONFIG_FILE"
+  cmd_config set path 'E:\dudu backups' >/dev/null
+  config_load
+  [ "$DUDU_PATH" = "/e/dudu backups" ]
+}
+
+@test "Documents follows OneDrive" {
+  [ "$(win_documents)" = "$HOME/Documents" ]
+  REG_Personal='%USERPROFILE%\OneDrive\Documents'
+  [ "$(win_documents)" = "$HOME/OneDrive/Documents" ]
+  REG_Personal='D:\Docs'
+  [ "$(win_documents)" = /d/Docs ]
+}
+
+@test "PowerShell profiles are saved from, and restored to, a moved Documents" {
+  REG_Personal='%USERPROFILE%\OneDrive\Documents'
+  mkdir -p "$HOME/OneDrive/Documents/PowerShell"
+  echo 'Set-Alias g git' > "$HOME/OneDrive/Documents/PowerShell/profile.ps1"
+  d="$BATS_TEST_TMPDIR/b"; mkdir -p "$d"
+  shell_backup "$d"
+  [ "$(cat "$d/home/Documents/PowerShell/profile.ps1")" = 'Set-Alias g git' ]
+  rm -rf "$HOME/OneDrive/Documents/PowerShell"
+  shell_restore "$d" >/dev/null
+  [ "$(cat "$HOME/OneDrive/Documents/PowerShell/profile.ps1")" = 'Set-Alias g git' ]
+  [ ! -e "$HOME/Documents/PowerShell/profile.ps1" ]
+}
+
+@test "Oh My Zsh is not installed where there is no zsh" {
+  has() { [ "$1" != zsh ] && command -v "$1" >/dev/null 2>&1; }
+  curl() { echo called > "$BATS_TEST_TMPDIR/curl"; }
+  d="$BATS_TEST_TMPDIR/b"; mkdir -p "$d"
+  touch "$d/ohmyzsh"
+  echo 'plugins/x https://github.com/x/x' > "$d/omz-custom.txt"
+  run shell_restore "$d"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Oh My Zsh left out"* ]] || false
+  [ ! -e "$BATS_TEST_TMPDIR/curl" ]
+  [ ! -d "$HOME/.oh-my-zsh" ]
+}
+
+@test "another system's .bashrc is set aside, not restored over Git Bash's" {
+  mac_bundle_on_windows
+  mkdir -p "$B/shell/home"
+  echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' > "$B/shell/home/.bashrc"
+  echo 'alias ll="ls -l"' > "$B/shell/home/.aliases"
+  crossos_localize "$B" "$LEFT"
+  [ ! -f "$B/shell/home/.bashrc" ]
+  [ -f "$B/shell/home/.aliases" ]
+  grep -qx 'shell|~/.bashrc' "$LEFT"
+}
+
+@test "npm globals of an nvm backup go to the node in use on Windows" {
+  mkdir -p "$BATS_TEST_TMPDIR/npmroot/eslint"
+  fake_cmd npm 'case "$1" in
+  root) printf "%s\r\n" "$NPM_ROOT" ;;
+  install) shift 2; echo "$*" >> "$BATS_TEST_TMPDIR/installed" ;;
+esac'
+  export NPM_ROOT="$BATS_TEST_TMPDIR/npmroot"
+  d="$BATS_TEST_TMPDIR/b"; mkdir -p "$d"
+  printf 'v20.11.0 eslint\nv20.11.0 typescript\n' > "$d/globals.txt"
+  run npm_restore "$d"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"is not installed"* ]] || false
+  [ "$(cat "$BATS_TEST_TMPDIR/installed")" = typescript ]
+}
+
+@test "the PATH takes in what installers added" {
+  powershell.exe() { printf 'C:\\Go\\bin;C:\\Users\\x\\tools\;;C:\\Go\\bin\r\n'; }
+  win_refresh_path
+  [[ ":$PATH:" == *":/c/Go/bin:"* ]] || false
+  [[ ":$PATH:" == *":/c/Users/x/tools:"* ]] || false
+  [ "$(printf '%s' "$PATH" | tr ':' '\n' | grep -cx /c/Go/bin)" -eq 1 ]
+}
+
+@test "Chocolatey is not started outside an administrator terminal" {
+  fake_cmd choco 'case "$1" in
+  list) printf "git|2.47.0\r\n" ;;
+  install) echo "$*" >> "$BATS_TEST_TMPDIR/installed" ;;
+esac'
+  win_is_admin() { return 1; }
+  win_refresh_path() { :; }
+  d="$BATS_TEST_TMPDIR/b"; mkdir -p "$d"
+  printf 'git\nneovim\n' > "$d/packages.txt"
+  run choco_restore "$d"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"administrator terminal"* ]] || false
+  [ ! -e "$BATS_TEST_TMPDIR/installed" ]
+  win_is_admin() { return 0; }
+  choco_restore "$d"
+  grep -q neovim "$BATS_TEST_TMPDIR/installed"
+}
+
+@test "pyenv-win's Windows line ends do not reach the backup" {
+  fake_cmd pyenv 'case "$1" in
+  versions) printf "3.11.9\r\n3.12.4\r\n" ;;
+  global) printf "3.12.4\r\n" ;;
+esac'
+  has() { case "$1" in pipx | uv | python3 | py) return 1 ;; esac; command -v "$1" >/dev/null 2>&1; }
+  d="$BATS_TEST_TMPDIR/b"; mkdir -p "$d"
+  run python_backup "$d"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$d/pyenv.txt")" = "$(printf '3.11.9\n3.12.4')" ]
+  [ "$(cat "$d/pyenv-global")" = 3.12.4 ]
+}
+
+@test "a password kept in a file on Windows is said out loud" {
+  crypto_win_vault() { return 1; }
+  run crypto_store_password pw
+  [[ "$output" == *"Credential Manager did not take the password"* ]] || false
+}
+
+@test "RESTORE.md gives the installer of each system" {
+  out=$(restore_install_lines)
+  [[ "$out" == *"windows/install.ps1 | iex"* ]] || false
+  [[ "$out" == *"main/install.sh | bash"* ]] || false
+}
+
+@test "Apple Notes is not offered on Windows" {
+  checklist_select() { printf '%s\n' "${CL_DEST[@]}" > "$BATS_TEST_TMPDIR/dests"; return 1; }
+  run config_pick_destination
+  run ! grep -qx notes "$BATS_TEST_TMPDIR/dests"
+  grep -qx local "$BATS_TEST_TMPDIR/dests"
+}

@@ -102,20 +102,98 @@ EOF
   fi
 }
 
-# A daily task for this user, which runs only while they are logged on (no password needed).
+# Windows reads .vbs and task files as UTF-16: a path with an accent (C:\Users\João) would
+# be garbled in plain UTF-8.
+utf16_file() { # <file>, text on stdin
+  { printf '\377\376'; iconv -f UTF-8 -t UTF-16LE; } > "$1"
+}
+
+# Git for Windows' own bash.exe (Git\bin), which sets up its environment; else this bash.
+schedule_bash_exe() {
+  local b root
+  if has cygpath; then
+    root=$(cygpath -m / 2>/dev/null)
+    if [ -n "$root" ] && [ -f "$root/bin/bash.exe" ]; then
+      win_path "$root/bin/bash.exe"
+      return
+    fi
+  fi
+  b=$(win_path "$(command -v bash)")
+  case "$b" in *.exe) ;; *) b="$b.exe" ;; esac
+  printf '%s' "$b"
+}
+
+# The task as Task Scheduler's XML: schtasks' own options cannot say "also on battery" or
+# "run it later when the time was missed", and a laptop needs both.
+schedule_task_xml() { # <HH:MM> <command> <arguments>
+  local user=""
+  [ -n "${USERNAME:-}" ] && user="${USERDOMAIN:+$USERDOMAIN\\}$USERNAME"
+  cat <<EOF
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>dudu backup</Description></RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>$(date +%Y-%m-%d)T$1:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+$([ -n "$user" ] && printf '      <UserId>%s</UserId>\n' "$(printf '%s' "$user" | xml_escape)")
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>$(printf '%s' "$2" | xml_escape)</Command>
+      <Arguments>$(printf '%s' "$3" | xml_escape)</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+EOF
+}
+
+# A daily task for this user, which runs only while they are logged on (no password needed),
+# on battery too, and as soon as possible after a missed time (the machine was off or asleep).
 schedule_on_windows() { # <HH:MM>
-  local bash vbs dudu
-  bash=$(win_path "$(command -v bash)")
-  case "$bash" in *.exe) ;; *) bash="$bash.exe" ;; esac
+  local bash vbs dudu xml run cmd args rc=0
+  bash=$(schedule_bash_exe)
   # Single-quoted for bash -c ('\'' for a quote in the path); Windows paths have no ".
   dudu="'$(stable_root | sed "s/'/'\\\\''/g")/dudu'"
   vbs=$(schedule_vbs)
   mkdir -p "$(dirname "$vbs")"
-  # "" is a quote inside a VBScript string. bash -l sets up Git Bash's PATH as a terminal does.
-  printf 'CreateObject("WScript.Shell").Run """%s"" -lc ""%s backup --scheduled""", 0, False\r\n' \
-    "$bash" "$dudu" > "$vbs"
-  if ! schtasks_run /Create /F /SC DAILY /TN "$SCHEDULE_TASK" /ST "$1" \
-       /TR "wscript.exe \"$(win_path "$vbs")\"" >/dev/null; then
+  if has wscript.exe || ! has conhost.exe; then
+    # "" is a quote inside a VBScript string. bash -l sets up Git Bash's PATH as a terminal
+    # does, and MSYSTEM tells it which one (without it git and curl are not found).
+    {
+      printf 'Set s = CreateObject("WScript.Shell")\r\n'
+      printf 's.Environment("Process")("MSYSTEM") = "%s"\r\n' "${MSYSTEM:-MINGW64}"
+      printf 's.Run """%s"" -lc ""%s backup --scheduled""", 0, False\r\n' "$bash" "$dudu"
+    } | utf16_file "$vbs"
+    cmd=wscript.exe
+    args="\"$(win_path "$vbs")\""
+  else
+    # Windows without the script host (it is being retired): a console that never shows.
+    rm -f "$vbs"
+    cmd=conhost.exe
+    args="--headless \"$bash\" -lc \"$dudu backup --scheduled\""
+  fi
+  xml=$(mktemp)
+  schedule_task_xml "$1" "$cmd" "$args" | utf16_file "$xml"
+  schtasks_run /Create /F /TN "$SCHEDULE_TASK" /XML "$(win_path "$xml")" >/dev/null || rc=1
+  rm -f "$xml"
+  if [ $rc -ne 0 ]; then
     err "$(t "Task Scheduler could not create the task %s" "$SCHEDULE_TASK")"
     return 1
   fi
@@ -189,7 +267,7 @@ cmd_schedule() {
       ok "$(t "Daily backup at %s" "$t")"
       dim "  $(t "It runs without a terminal: failures show a notification and go to %s." "$(tilde "$DUDU_LOG")")"
       # Notes asks for permission once; a scheduled run cannot answer that prompt.
-      if list_has "$DUDU_DESTINATION" notes && [ -t 0 ] && [ -t 1 ]; then
+      if is_macos && list_has "$DUDU_DESTINATION" notes && [ -t 0 ] && [ -t 1 ]; then
         echo
         confirm "$(t "Run a backup now (so macOS can ask for the Notes permission)?")" && { echo; cmd_backup; }
       fi

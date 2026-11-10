@@ -420,6 +420,12 @@ cmd_restore() {
 
   n=$(echo "$todo" | wc -w | tr -d ' ')
   phase "3/3" "$(t "Restoring")" "${todo// /, }"
+  if is_windows && [ -z "$DUDU_DRY_RUN" ]; then
+    case " $todo " in
+      *" winget "*|*" brew "*|*" choco "*|*" node "*|*" cargo "*|*" bun "*)
+        dim "  $(t "Some installers ask for permission in a Windows window: answer Yes there, it may open behind this one.")" ;;
+    esac
+  fi
   local failed=""
   for c in $todo; do
     title "── $c"

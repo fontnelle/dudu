@@ -15,7 +15,8 @@ CRYPTO_PW=""
 crypto_key_file() { printf '%s/key' "$DUDU_CONFIG_DIR"; }
 
 sha256_stdin() {
-  if has shasum; then shasum -a 256 | cut -d' ' -f1; else sha256sum | cut -d' ' -f1; fi
+  # sha256sum first: shasum is a Perl script, slow to start in Git Bash.
+  if has sha256sum; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi
 }
 
 # The Windows Credential Manager, through PowerShell's PasswordVault: store, read or forget.
@@ -48,6 +49,8 @@ crypto_store_password() { # <password>
     printf '%s' "$1" | secret-tool store --label="dudu backup password" service "$CRYPTO_SERVICE" 2>/dev/null && return 0
   fi
   mkdir -p "$DUDU_CONFIG_DIR"
+  # Said out loud on Windows, where this file is the exception and nothing protects it.
+  is_windows && warn "$(t "The Windows Credential Manager did not take the password: it is kept in %s" "$(tilde "$(crypto_key_file)")")" >&2
   ( umask 077; printf '%s' "$1" > "$(crypto_key_file)" )
 }
 
@@ -139,7 +142,7 @@ crypto_seal() { # <bundle>
     t "Everything is inside backup.enc, encrypted with your backup password."; echo
     t "Restore it on a new machine with:"; echo
     echo
-    echo "    curl -fsSL https://raw.githubusercontent.com/$DUDU_REPO/main/install.sh | bash"
+    restore_install_lines
     echo "    dudu config     # $(t "pick the same destination")"
     echo "    dudu restore    # $(t "asks for the password")"
   } > "$b/RESTORE.md"

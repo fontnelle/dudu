@@ -3,6 +3,7 @@
 # dudu runs in Git Bash: this installs Git for Windows when it is missing (with winget), runs
 # install.sh in Git Bash, and adds a dudu command for PowerShell and cmd.
 # A version or the development branch: $env:DUDU_VERSION = "0.1.0" (or "windows") first.
+# A copy of dudu already on this computer: $env:DUDU_SOURCE = "C:\path\to\dudu" first.
 
 $ErrorActionPreference = "Stop"
 $Branch = "windows"
@@ -39,22 +40,43 @@ if (-not $bash) {
 Ok "Git Bash: $bash"
 
 # install.sh of the same branch, saved to a file and run whole by Git Bash.
-$installer = Join-Path $env:TEMP "dudu-install-$PID.sh"
-Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$Repo/$Branch/install.sh" -OutFile $installer
-$bashArgs = @(($installer -replace '\\', '/'))
-if ($env:DUDU_VERSION) { $bashArgs += $env:DUDU_VERSION }
-& $bash $bashArgs
-$rc = $LASTEXITCODE
-Remove-Item $installer -ErrorAction SilentlyContinue
+if ($env:DUDU_SOURCE) {
+  $src = (Resolve-Path $env:DUDU_SOURCE).Path -replace '\\', '/'
+  & $bash "$src/install.sh" --source $src
+  $rc = $LASTEXITCODE
+} else {
+  $installer = Join-Path $env:TEMP "dudu-install-$PID.sh"
+  Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$Repo/$Branch/install.sh" -OutFile $installer
+  $bashArgs = @(($installer -replace '\\', '/'))
+  if ($env:DUDU_VERSION) { $bashArgs += $env:DUDU_VERSION }
+  & $bash $bashArgs
+  $rc = $LASTEXITCODE
+  Remove-Item $installer -ErrorAction SilentlyContinue
+}
 if ($rc -ne 0) { Die "install.sh stopped (exit code $rc)" }
 
 # dudu.cmd runs dudu in Git Bash from PowerShell, cmd and the Run dialog.
 $binDir = Join-Path $env:LOCALAPPDATA "dudu\bin"
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-$lib = (Join-Path $env:USERPROFILE ".local\share\dudu\dudu") -replace '\\', '/'
-Set-Content -Encoding ASCII -Path (Join-Path $binDir "dudu.cmd") -Value "@`"$bash`" `"$lib`" %*"
+# No folder of the user is written into dudu.cmd: a .cmd file has no reliable encoding for
+# a name with an accent, so the profile folder is read (%USERPROFILE%) when dudu runs.
+$bashCmd = $bash
+foreach ($v in "LOCALAPPDATA", "USERPROFILE") {
+  $dir = [Environment]::GetEnvironmentVariable($v)
+  if ($dir -and $bashCmd.StartsWith($dir, [StringComparison]::OrdinalIgnoreCase)) {
+    $bashCmd = "%$v%" + $bashCmd.Substring($dir.Length); break
+  }
+}
+# Git Bash wants the script path with forward slashes.
+$cmdLines = @(
+  "@echo off",
+  "setlocal",
+  'set "DUDU_HOME=%USERPROFILE:\=/%"',
+  "`"$bashCmd`" `"%DUDU_HOME%/.local/share/dudu/dudu`" %*"
+)
+Set-Content -Encoding ASCII -Path (Join-Path $binDir "dudu.cmd") -Value $cmdLines
 
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$userPath = [string][Environment]::GetEnvironmentVariable("Path", "User")
 if (-not (($userPath -split ";") -contains $binDir)) {
   [Environment]::SetEnvironmentVariable("Path", (($userPath.TrimEnd(";"), $binDir) -join ";").TrimStart(";"), "User")
   $env:Path = "$env:Path;$binDir"

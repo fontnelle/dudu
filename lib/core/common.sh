@@ -61,6 +61,25 @@ expand_home() {
   esac
 }
 
+# A folder as typed or pasted: spaces and quotes off (Explorer's "Copy as path" adds them),
+# ~ expanded, and on Windows C:\Users\x turned into Git Bash's /c/Users/x.
+folder_path_normalize() { # <path>
+  local p
+  p=$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  case "$p" in \"?*\"|\'?*\') p=${p:1:${#p}-2} ;; esac
+  p=$(expand_home "$p")
+  if is_windows; then
+    case "$p" in [A-Za-z]:*) p=$(unix_path "$p") ;; esac
+  fi
+  printf '%s' "$p"
+}
+
+# "X is not a full path": with an example of one for this system.
+folder_path_hint() { # <path>
+  if is_windows; then t "%s is not a full path: use one like %s" "$(safe_text "$1")" 'C:\Users\you\dudu'
+  else t "%s is not a full path: start it with / or ~/" "$(safe_text "$1")"; fi
+}
+
 # Why <path> cannot hold backups, printed for people: a link, a relative path ("q", which
 # would land wherever dudu runs) or control characters. Prints nothing and returns 1 for a
 # usable folder path, so: if problem=$(folder_path_error "$p"); then warn "$problem"; fi
@@ -73,7 +92,7 @@ folder_path_error() { # <path, ~ already expanded>
       esac
       return 0 ;;
     /*) ;;
-    *) t "%s is not a full path: start it with / or ~/" "$(safe_text "$1")"; return 0 ;;
+    *) folder_path_hint "$1"; return 0 ;;
   esac
   if printf '%s' "$1" | LC_ALL=C grep -q '[[:cntrl:]]'; then
     t "%s has control characters" "$(safe_text "$1")"
@@ -105,12 +124,12 @@ config_load() {
     case "$value" in \"*\"|\'*\') value=${value:1:${#value}-2} ;; esac
     case "$key" in
       destination) DUDU_DESTINATION=$value ;;
-      path) DUDU_PATH=$(expand_home "$value") ;;
+      path) DUDU_PATH=$(folder_path_normalize "$value") ;;
       include) DUDU_INCLUDE=$value ;;
       exclude) DUDU_EXCLUDE=$value ;;
       keep) case "$value" in ''|*[!0-9]*|0) ;; *) DUDU_KEEP=$value ;; esac ;;
       rclone_remote) DUDU_RCLONE_REMOTE=$value ;;
-      gdrive_path) DUDU_GDRIVE_PATH=$(expand_home "$value") ;;
+      gdrive_path) DUDU_GDRIVE_PATH=$(folder_path_normalize "$value") ;;
       encrypt) [ "$value" = on ] && DUDU_ENCRYPT=on ;;
       language) DUDU_LANGUAGE=${value:-auto} ;;
       ''|'#'*) ;;
@@ -310,8 +329,10 @@ backup_copy_name() { # <file>
 # through a symlink. Masked secrets take the real value from the current file when it has
 # the same line, otherwise the line is restored commented out.
 restore_home() { # <backup home dir> [allowed globs, one per line]
-  local base=$1 allow=${2:-} src rel dst bak merged rc=0
+  local base=$1 allow=${2:-} src rel dst bak merged rc=0 docs=""
   [ -d "$base" ] || return 0
+  # Windows' Documents may be somewhere else (OneDrive): its files go to where it really is.
+  is_windows && docs=$(win_documents)
   while IFS= read -r src; do
     rel=${src#"$base"/}
     if restore_denied "$rel" || { [ -n "$allow" ] && ! restore_allowed "$rel" "$allow"; }; then
@@ -319,6 +340,7 @@ restore_home() { # <backup home dir> [allowed globs, one per line]
       continue
     fi
     dst="$HOME/$rel"
+    case "$rel" in Documents/*) [ -n "$docs" ] && dst="$docs/${rel#Documents/}" ;; esac
     # macOS-only places (Library/...) from a Mac backup mean nothing on Linux.
     if ! is_macos && [ "${rel#Library/}" != "$rel" ]; then
       dim "  - $(t "%s (macOS only)" "~/$(safe_text "$rel")")"
@@ -412,6 +434,14 @@ missing_from() {
   sort -u > "$have"
   sort -u "$wanted" | comm -23 - "$have"
   rm -f "$have"
+}
+
+# "go is not installed, skipping": with where it usually comes from, except on Windows,
+# where a Mac's Brewfile is no hint.
+tool_missing_msg() { # <tool> [npm]
+  if is_windows; then t "%s is not installed, skipping" "$1"
+  elif [ "${2:-}" = npm ]; then t "%s is not installed (restore npm/brew first), skipping" "$1"
+  else t "%s is not installed (it is usually in the Brewfile), skipping" "$1"; fi
 }
 
 # Dependency names from a package.json (yarn/bun global), without jq.

@@ -32,7 +32,7 @@ winget_restore() {
     winget_install "$id" || warn "$(t "could not install %s" "$id")"
     n=$((n + 1))
   done < <(winget_ids | missing_pkgs "$1/packages.txt")
-  [ $n -gt 0 ] || dim "  $(t "all packages already installed")"
+  if [ $n -gt 0 ]; then win_installed; else dim "  $(t "all packages already installed")"; fi
 }
 
 # winget's tables have localized headers and names with spaces: read each row from the
@@ -56,8 +56,19 @@ winget_upgrade_hint() { echo "winget upgrade --all"; }
 # shellcheck disable=SC2086
 winget_upgrade() { winget upgrade --id "$1" --exact --silent $WINGET_ACCEPT; }
 
+# After installs: what they added to the PATH is taken in, so the tools restored next (go,
+# node, python) are found without opening another terminal.
+win_installed() {
+  [ -z "${DUDU_DRY_RUN:-}" ] || return 0
+  win_refresh_path
+  case ":$PATH:" in
+    *":$(win_localappdata)/Microsoft/WinGet/Links:"*) ;;
+    *) PATH="$PATH:$(win_localappdata)/Microsoft/WinGet/Links" ;;
+  esac
+}
+
 # A tool another collector needs (rustup, bun, fnm), from whichever Windows package manager
-# is here. Its command is usable right away: winget's links folder is added to PATH.
+# is here. Its command is usable right away: the PATH is read again after the install.
 win_pkg_install() { # <winget id> <scoop name>
   case "$(win_pm)" in
     winget) winget_install "$1" || return 1 ;;
@@ -65,5 +76,5 @@ win_pkg_install() { # <winget id> <scoop name>
     choco) act choco install -y "$2" || return 1 ;;
     *) warn "$(t "Install winget or scoop first, then run %s again" "dudu restore")"; return 1 ;;
   esac
-  PATH="$PATH:$(win_localappdata)/Microsoft/WinGet/Links"
+  win_installed
 }

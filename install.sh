@@ -4,6 +4,7 @@
 #   ... | bash -s -- 0.1.0                 a specific version
 #   ... | bash -s -- windows               the development branch
 #   ... | bash -s -- --prefix ~/bin        install the command somewhere else
+#   bash install.sh --source <folder>      install a copy of dudu already on this computer
 
 set -euo pipefail
 
@@ -29,11 +30,14 @@ command -v tar >/dev/null || die "tar is required"
 
 version=""
 bin_dir=""
+source_dir=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --prefix) bin_dir=$2; shift ;;
     --prefix=*) bin_dir=${1#*=} ;;
-    -h|--help) sed -n '2,6p' "$0" 2>/dev/null; exit 0 ;;
+    --source) source_dir=$2; shift ;;
+    --source=*) source_dir=${1#*=} ;;
+    -h|--help) sed -n '2,7p' "$0" 2>/dev/null; exit 0 ;;
     *) version=${1#v} ;;
   esac
   shift
@@ -52,6 +56,10 @@ else
   lib_dir="${XDG_DATA_HOME:-$HOME/.local/share}/dudu"
 fi
 
+if [ -n "$source_dir" ]; then
+  [ -f "$source_dir/dudu" ] || die "$source_dir is not a dudu folder (no dudu in it)"
+  version=source
+fi
 if [ -z "$version" ]; then
   # The newest win-v tag: the repository's "latest" release is the macOS/Linux edition.
   version=$(curl -fsSL --max-time 10 "https://api.github.com/repos/$REPO/releases?per_page=50" 2>/dev/null |
@@ -62,7 +70,7 @@ if [ -z "$version" ]; then
 fi
 
 [ "$version" = main ] && version=$BRANCH
-if [ "$version" != "$BRANCH" ] && [ -x "$lib_dir/dudu" ]; then
+if [ -z "$source_dir" ] && [ "$version" != "$BRANCH" ] && [ -x "$lib_dir/dudu" ]; then
   installed=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$lib_dir/dudu" | head -1)
   if [ "$installed" = "$version" ]; then
     ok "Already on the latest version ($version)"
@@ -73,7 +81,12 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-if [ "$version" = "$BRANCH" ]; then
+if [ -n "$source_dir" ]; then
+  step "Copying dudu from $source_dir"
+  mkdir -p "$tmp/src"
+  cp -R "$source_dir/." "$tmp/src/"
+  rm -rf "$tmp/src/.git"
+elif [ "$version" = "$BRANCH" ]; then
   step "Downloading dudu ($BRANCH)"
   curl -fsSL "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz" -o "$tmp/dudu.tar.gz"
 else
@@ -91,8 +104,10 @@ else
   ok "Checksum verified"
 fi
 
-mkdir -p "$tmp/src"
-tar -xzf "$tmp/dudu.tar.gz" -C "$tmp/src" --strip-components=1
+if [ -z "$source_dir" ]; then
+  mkdir -p "$tmp/src"
+  tar -xzf "$tmp/dudu.tar.gz" -C "$tmp/src" --strip-components=1
+fi
 for f in dudu lib/core/common.sh lib/core/scrub.awk lib/core/secrets.sh bin/backup.sh; do
   [ -f "$tmp/src/$f" ] || die "Unexpected archive layout (missing $f)"
 done
@@ -104,9 +119,15 @@ chmod +x "$tmp/src/dudu"
 mkdir -p "$bin_dir" "$(dirname "$lib_dir")"
 rm -rf "$lib_dir.new" "$lib_dir.old"
 cp -R "$tmp/src" "$lib_dir.new" || die "Could not copy dudu to $lib_dir"
-[ -d "$lib_dir" ] && mv "$lib_dir" "$lib_dir.old"
-mv "$lib_dir.new" "$lib_dir" || { [ -d "$lib_dir.old" ] && mv "$lib_dir.old" "$lib_dir"; die "Could not install dudu"; }
-rm -rf "$lib_dir.old"
+if [ -n "$windows" ] && [ -d "$lib_dir" ] && ! mv "$lib_dir" "$lib_dir.old" 2>/dev/null; then
+  # Windows does not rename a folder in use (dudu update runs from it): copy over it.
+  cp -R "$lib_dir.new/." "$lib_dir/" || die "Could not install dudu (close other dudu windows and try again)"
+  rm -rf "$lib_dir.new"
+else
+  if [ -z "$windows" ] && [ -d "$lib_dir" ]; then mv "$lib_dir" "$lib_dir.old"; fi
+  mv "$lib_dir.new" "$lib_dir" || { [ -d "$lib_dir.old" ] && mv "$lib_dir.old" "$lib_dir"; die "Could not install dudu"; }
+  rm -rf "$lib_dir.old"
+fi
 if [ -n "$windows" ]; then
   # Without Developer Mode, Git Bash's ln -s makes a copy, which would not find lib/.
   rm -f "$bin_dir/dudu"

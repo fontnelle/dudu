@@ -2,7 +2,7 @@
 # dudu: backup and restore of your dev environment (installs, runtimes, terminal config).
 # https://github.com/fontnelle/dudu
 
-VERSION="0.1.0"
+VERSION="0.1.1"
 
 set -o pipefail
 
@@ -65,6 +65,7 @@ usage() {
   printf '%s %s\n' "$(t "Docs:")" "$DUDU_HOMEPAGE"
 }
 
+# shellcheck disable=SC2329 # called by name, through menu_select
 main_header() {
   show_banner
   update_notice
@@ -166,4 +167,5 @@ main() {
   esac
 }
 
-main "$@"
+# One line: bash reads a script as it goes, and dudu update may replace this file meanwhile.
+main "$@"; exit $?

@@ -76,7 +76,69 @@ jobs:
       - name: Installer in Git Bash (this checkout)
         run: |
           bash -n install.sh
+          bash install.sh --source "$PWD"
+          "$HOME/bin/dudu" --version
+          # dudu update replaces dudu while it runs, and Windows keeps a folder in use from
+          # being renamed: the installer must still go through.
+          ( cd "$HOME/.local/share/dudu" && exec 9< dudu && sleep 30 ) &
+          sleep 1
+          bash install.sh --source "$PWD"
+          "$HOME/bin/dudu" --version
           ./dudu schedule status
+      - name: The scheduled backup's hidden launcher makes a backup
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: |
+          # A Windows path, as a user would type it.
+          ./dudu config set destination local
+          ./dudu config set path "$RUNNER_TEMP\\scheduled backups"
+          ./dudu config set include shell,git
+          ./dudu schedule on 23:58
+          ./dudu schedule status | grep -q 23:58
+          dest="$(cygpath -u "$RUNNER_TEMP")/scheduled backups"
+          # What the task runs, started the way Task Scheduler starts it.
+          wscript.exe "$(cygpath -w "$HOME/.config/dudu/scheduled-backup.vbs")"
+          for _ in $(seq 60); do
+            ls "$dest"/*/latest >/dev/null 2>&1 && break
+            sleep 2
+          done
+          ls "$dest"/*/latest || { tail -40 "$HOME/.cache/dudu/dudu.log"; exit 1; }
+          ./dudu schedule off
+      - name: install.ps1 from Windows PowerShell, then dudu from PowerShell and cmd
+        shell: powershell
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: |
+          $env:DUDU_SOURCE = "$PWD"
+          # As irm ... | iex runs it: the text of the script, not a file.
+          Get-Content -Raw .\install.ps1 | Invoke-Expression
+          $v = dudu --version
+          if ("$v" -notmatch '^dudu \d') { throw "dudu did not run from PowerShell: $v" }
+          $v = cmd /c "dudu --version"
+          if ("$v" -notmatch '^dudu \d') { throw "dudu did not run from cmd: $v" }
+          cmd /c "dudu backup --only shell"
+          if ($LASTEXITCODE -ne 0) { throw "dudu backup failed from cmd" }
+      - name: install.ps1 from PowerShell 7, for a user folder with an accent and a space
+        shell: pwsh
+        env:
+          DUDU_NO_UPDATE_CHECK: "1"
+          NO_COLOR: "1"
+        run: |
+          $u = Join-Path $env:RUNNER_TEMP "João Silva"
+          New-Item -ItemType Directory -Force "$u\AppData\Local", "$u\AppData\Roaming" | Out-Null
+          $env:USERPROFILE = $u; $env:HOME = $u
+          $env:LOCALAPPDATA = "$u\AppData\Local"; $env:APPDATA = "$u\AppData\Roaming"
+          $env:DUDU_SOURCE = "$PWD"
+          Get-Content -Raw .\install.ps1 | Invoke-Expression
+          $shim = "$env:LOCALAPPDATA\dudu\bin\dudu.cmd"
+          $v = & $shim --version
+          if ("$v" -notmatch '^dudu \d') { throw "dudu.cmd did not run from PowerShell: $v" }
+          $v = cmd /c "`"$shim`" --version"
+          if ("$v" -notmatch '^dudu \d') { throw "dudu.cmd did not run from cmd: $v" }
+          & $shim backup --only shell
+          if ($LASTEXITCODE -ne 0) { throw "dudu backup failed" }
 
   # macOS ships bash 3.2 as /bin/bash: dudu must keep working there.
   bash32:

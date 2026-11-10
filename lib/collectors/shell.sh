@@ -12,9 +12,27 @@ shell_omz_dir() { printf '%s' "${ZSH:-$HOME/.oh-my-zsh}"; }
 
 shell_detect() { return 0; }
 
+# Windows' Documents may not be ~/Documents (OneDrive moves it): PowerShell's profiles are
+# read from where it really is, and always kept in the backup as Documents/...
+shell_save_document() { # <Documents/... path> <bundle home> <real Documents folder>
+  local src="$3/${1#Documents/}"
+  [ -f "$src" ] || return 1
+  mkdir -p "$2/$(dirname "$1")"
+  cp -L "$src" "$2/$1" || return 1
+  secrets_scrub "$2/$1" "$(tilde "$src")"
+}
+
 shell_backup() {
-  local f n=0 omz custom d url extra=""
+  local f n=0 omz custom d url extra="" docs=""
+  is_windows && docs=$(win_documents)
   for f in $SHELL_FILES; do
+    case "$f" in
+      Documents/*)
+        if [ -n "$docs" ] && [ "$docs" != "$HOME/Documents" ]; then
+          shell_save_document "$f" "$1/home" "$docs" && n=$((n + 1))
+          continue
+        fi ;;
+    esac
     save_file "$HOME/$f" "$1/home" && n=$((n + 1))
   done
   # Small config trees (fish functions, neovim), without git metadata.
@@ -48,12 +66,15 @@ shell_backup() {
 shell_restore() {
   local omz custom rel url
   omz=$(shell_omz_dir)
-  if [ -f "$1/ohmyzsh" ] && [ ! -d "$omz" ]; then
+  # Git Bash has no zsh: Oh My Zsh and its plugins would be installed for nothing.
+  if is_windows && ! has zsh && [ -f "$1/ohmyzsh" ]; then
+    dim "  - $(t "Oh My Zsh left out: there is no zsh on this machine")"
+  elif [ -f "$1/ohmyzsh" ] && [ ! -d "$omz" ]; then
     step "$(t "Installing %s" "Oh My Zsh")"
     act_sh 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
   fi
-  if [ -s "$1/omz-custom.txt" ]; then
-    custom="${ZSH_CUSTOM:-$omz/custom}"
+  custom="${ZSH_CUSTOM:-$omz/custom}"
+  if [ -s "$1/omz-custom.txt" ] && { ! is_windows || has zsh; }; then
     while read -r rel url; do
       [ -n "$url" ] || continue
       # Only plugins/<name> or themes/<name>, cloned from a plain https or ssh git URL.

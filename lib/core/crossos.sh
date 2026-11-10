@@ -161,6 +161,15 @@ crossos_localize() { # <bundle> <left out file>
   done
   # Windows' AppData (Windows Terminal, nvim) means nothing on macOS or Linux.
   is_windows || crossos_set_aside "$b" AppData "$2"
+  # Git Bash starts from its own .bashrc and .bash_profile: the other system's ones (Homebrew
+  # and nvm paths) would only print errors in every terminal and in the scheduled backup.
+  if is_windows; then
+    for f in .bashrc .bash_profile .profile; do
+      [ -f "$b/shell/home/$f" ] || continue
+      printf 'shell|~/%s\n' "$f" >> "$2"
+      rm -f "$b/shell/home/$f"
+    done
+  fi
   is_macos && return 0
 
   # Ghostty reads the same config from ~/.config/ghostty on Linux.
@@ -270,6 +279,7 @@ crossos_brew_restore_windows() { # <brew dir>
       act scoop install "$id" || warn "$(t "could not install %s" "$id")"
     done < <(pkg_filter < "$d/scoop.txt")
   fi
+  win_installed
   return 0
 }
 

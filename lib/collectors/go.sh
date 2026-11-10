@@ -5,12 +5,14 @@ go_detect() { has go; }
 
 go_bin_dir() {
   local d p
-  d=$(go env GOBIN 2>/dev/null) || return 1
+  d=$(go env GOBIN 2>/dev/null | tr -d '\r') || return 1
   if [ -z "$d" ]; then
-    p=$(go env GOPATH 2>/dev/null) || return 1
+    p=$(go env GOPATH 2>/dev/null | tr -d '\r') || return 1
     [ -n "$p" ] || return 1 # never "/bin"
-    d="${p%%:*}/bin"
+    # A list of folders, split by ";" on Windows (C:\Users\x\go) and ":" elsewhere.
+    if is_windows; then d="${p%%;*}\\bin"; else d="${p%%:*}/bin"; fi
   fi
+  if is_windows; then d=$(unix_path "$d"); fi
   printf '%s' "$d"
 }
 
@@ -31,7 +33,7 @@ go_backup() {
 
 go_restore() {
   [ -s "$1/tools.txt" ] || return 0
-  has go || [ -n "${DUDU_DRY_RUN:-}" ] || { warn "$(t "%s is not installed (it is usually in the Brewfile), skipping" go)"; return 0; }
+  has go || [ -n "${DUDU_DRY_RUN:-}" ] || { warn "$(tool_missing_msg go)"; return 0; }
   local t
   while IFS= read -r t; do
     act go install "$t@latest" || warn "$(t "could not install %s" "$t")"

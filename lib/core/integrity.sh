@@ -15,7 +15,7 @@ backup_stamp() {
 valid_stamp() { printf '%s\n' "$1" | grep -Eq "$STAMP_RE"; }
 
 sha256_file() {
-  if has shasum; then shasum -a 256 "$1" | cut -d' ' -f1; else sha256sum "$1" | cut -d' ' -f1; fi
+  if has sha256sum; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
 # Writes <dir>/SHA256SUMS: "hash  path" for every file, sorted, paths relative to <dir>.

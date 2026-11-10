@@ -6,6 +6,8 @@ config_pick_destination() {
   local d i=0 chosen=""
   CL_KIND=(); CL_LABEL=(); CL_DETAIL=(); CL_ON=(); CL_LOCKED=(); CL_DEST=()
   for d in $DUDU_DESTINATIONS; do
+    # Apple Notes only exists on a Mac: on Windows it is not even a greyed-out row.
+    if is_windows && [ "$d" = notes ]; then continue; fi
     CL_KIND[i]=i
     CL_LABEL[i]=$(dest_label "$d")
     CL_DEST[i]=$d
@@ -48,7 +50,7 @@ config_pick_destination() {
     while :; do
       printf '%s ' "$(t "Local folder: where on this computer to keep backups (Enter = %s):" "$(tilde "${DUDU_PATH:-$HOME/dudu-backups}")")"
       IFS= read -r path || path=""
-      path=$(expand_home "$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')")
+      path=$(folder_path_normalize "$path")
       path=${path:-${DUDU_PATH:-$HOME/dudu-backups}}
       if problem=$(folder_path_error "$path"); then
         step_row fail "$(t "Local folder")" "$problem"
@@ -245,7 +247,7 @@ cmd_config() {
           DUDU_DESTINATION=$3 ;;
         path|gdrive_path)
           local value problem
-          value=$(expand_home "$3")
+          value=$(folder_path_normalize "$3")
           if problem=$(folder_path_error "$value"); then die "$problem"; fi
           if [ "$2" = path ]; then DUDU_PATH=$value; else DUDU_GDRIVE_PATH=$value; fi ;;
         include) DUDU_INCLUDE=$3 ;;

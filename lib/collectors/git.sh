@@ -11,8 +11,11 @@ git_backup() {
   for f in $GIT_FILES; do
     save_file "$HOME/$f" "$1/home" && n=$((n + 1))
   done
+  # The GitHub CLI keeps its settings in AppData on Windows (hosts.yml, with the token, stays).
+  is_windows && save_file "$HOME/AppData/Roaming/GitHub CLI/config.yml" "$1/home" && n=$((n + 1))
   excludes=$(git config --global core.excludesfile 2>/dev/null)
-  excludes=$(expand_home "$excludes")
+  # Git for Windows may answer C:/Users/x/.gitignore_global.
+  excludes=$(folder_path_normalize "$excludes")
   case "$excludes" in
     "$HOME"/*) [ -f "$1/home/${excludes#"$HOME"/}" ] || { save_file "$excludes" "$1/home" && n=$((n + 1)); } ;;
   esac
@@ -21,6 +24,7 @@ git_backup() {
 
 git_restore() {
   restore_home "$1/home" "$(echo "$GIT_FILES" | tr -s ' ' '\n')
+AppData/Roaming/GitHub CLI/config.yml
 *ignore*"
   if [ -f "$HOME/.ssh/config" ] && [ -z "${DUDU_DRY_RUN:-}" ]; then
     chmod 700 "$HOME/.ssh" 2>/dev/null

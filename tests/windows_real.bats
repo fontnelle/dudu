@@ -56,8 +56,12 @@ setup() {
   cmd_schedule on 07:15 < /dev/null
   schtasks_run /Query /TN "$SCHEDULE_TASK" >/dev/null
   [ "$(schedule_time)" = 07:15 ]
-  schtasks_run /Query /TN "$SCHEDULE_TASK" /XML | tr -d '\000' | grep -q 'wscript.exe'
-  grep -q -- '--scheduled' "$(schedule_vbs)"
+  xml=$(schtasks_run /Query /TN "$SCHEDULE_TASK" /XML | tr -d '\000\r')
+  [[ "$xml" == *wscript.exe* ]] || false
+  # A laptop: on battery too, and later when the time was missed.
+  [[ "$xml" == *'<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>'* ]] || false
+  [[ "$xml" == *'<StartWhenAvailable>true</StartWhenAvailable>'* ]] || false
+  tr -d '\000' < "$(schedule_vbs)" | grep -q -- '--scheduled'
   cmd_schedule off
   run ! schtasks_run /Query /TN "$SCHEDULE_TASK"
   [ ! -f "$(schedule_vbs)" ]
@@ -76,4 +80,50 @@ setup() {
 
 @test "real: a scheduled-task notification does not fail" {
   schedule_notify "dudu CI test"
+}
+
+@test "real: Documents is a folder that exists" {
+  d=$(win_documents)
+  [ -d "$d" ]
+  case "$d" in /*) ;; *) false ;; esac
+}
+
+@test "real: the PATH refresh keeps Windows' own folders and adds new ones" {
+  PATH="/usr/bin:/bin"
+  win_refresh_path
+  [[ ":$PATH:" == *"/Windows/System32:"* ]] || [[ ":$PATH:" == *"/WINDOWS/system32:"* ]] || false
+  has reg
+}
+
+@test "real: an administrator terminal is told from a plain one" {
+  # GitHub's runners are administrators.
+  win_is_admin
+}
+
+@test "real: a pasted Windows folder becomes a Git Bash path" {
+  w=$(cygpath -w "$BATS_TEST_TMPDIR")
+  [ "$(folder_path_normalize "\"$w\"")" = "$(cygpath -u "$w")" ]
+}
+
+@test "real: the scheduled task takes folders with an accent" {
+  SCHEDULE_TASK="dudu ci accent $$"
+  DUDU_DESTINATION=local
+  mkdir -p "$DUDU_CONFIG_DIR"; printf 'destination=local\n' > "$DUDU_CONFIG_FILE"
+  DUDU_CONFIG_DIR="$BATS_TEST_TMPDIR/João Silva/dudu"
+  DUDU_ROOT="$BATS_TEST_TMPDIR/João Silva/app"
+  cmd_schedule on 07:20 < /dev/null
+  # Task Scheduler took the task file, with the .vbs in that folder.
+  xml=$(schtasks_run /Query /TN "$SCHEDULE_TASK" /XML | tr -d '\000\r')
+  schtasks_run /Delete /F /TN "$SCHEDULE_TASK" >/dev/null
+  [[ "$xml" == *'Silva\dudu\scheduled-backup.vbs'* ]] || false
+  # wscript reads a .vbs with this mark as UTF-16, accents included.
+  [ "$(head -c 2 "$(schedule_vbs)" | od -An -tx1 | tr -d ' \n')" = fffe ]
+  vbs=$(tail -c +3 "$(schedule_vbs)" | iconv -f UTF-16LE -t UTF-8)
+  [[ "$vbs" == *"João Silva/app/dudu' backup --scheduled"* ]] || false
+}
+
+@test "real: Go's folder is a Git Bash path" {
+  has go || skip "no go on this runner"
+  d=$(go_bin_dir)
+  case "$d" in /*) ;; *) false ;; esac
 }

@@ -90,12 +90,19 @@ node_restore() {
     fnm)
       while IFS= read -r v; do act fnm install "$v"; done < <(pkg_filter < "$1/versions.txt")
       [ -n "$default" ] && act fnm default "$default"
+      if is_windows && [ -z "${DUDU_DRY_RUN:-}" ]; then
+        # fnm only puts node in the PATH of shells that load it: this one, for the tools
+        # restored next, and the user's own with one line in their profile.
+        eval "$(fnm env --shell bash 2>/dev/null)" 2>/dev/null
+        dim "  $(t "To have node in new terminals, add fnm to your profile: %s" "https://github.com/Schniz/fnm#shell-setup")"
+      fi
       ;;
     volta)
       while IFS= read -r v; do act volta install "node@${v#v}"; done < <(pkg_filter < "$1/versions.txt")
       ;;
     system)
-      dim "  $(t "Node %s was installed system-wide (Brewfile/packages cover it)" "$(cat "$1/versions.txt")")"
+      if is_windows; then dim "  $(t "Node %s was installed system-wide (winget, scoop or choco cover it)" "$(cat "$1/versions.txt")")"
+      else dim "  $(t "Node %s was installed system-wide (Brewfile/packages cover it)" "$(cat "$1/versions.txt")")"; fi
       ;;
   esac
   restore_home "$1/home" ".nvmrc"

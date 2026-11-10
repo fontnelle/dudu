@@ -17,6 +17,15 @@ npm_list_modules() {
   done | awk '$0 != "npm" && $0 != "corepack"'
 }
 
+# Where npm keeps global packages, as a Git Bash path on Windows.
+npm_global_root() {
+  local r
+  r=$(npm root -g 2>/dev/null | tr -d '\r') || return 1
+  [ -n "$r" ] || return 1
+  if is_windows; then r=$(unix_path "$r"); fi
+  printf '%s' "$r"
+}
+
 npm_detect() { has npm || [ -d "$(node_nvm_dir)/versions/node" ]; }
 
 npm_backup() {
@@ -29,7 +38,7 @@ npm_backup() {
       npm_list_modules "$v/lib/node_modules" | sed "s|^|$(basename "$v") |" >> "$1/globals.txt"
     done
   else
-    root=$(npm root -g 2>/dev/null) || return 1
+    root=$(npm_global_root) || return 1
     npm_list_modules "$root" | sed 's|^|default |' >> "$1/globals.txt"
   fi
   save_file "$HOME/.npmrc" "$1/home"
@@ -46,9 +55,17 @@ npm_restore() {
     [ -n "$(printf '%s\n' "$version" | pkg_filter)" ] || continue
     awk -v v="$version" '$1 == v { print $2 }' "$1/globals.txt" | pkg_filter > "$wanted"
     if [ "$version" = default ]; then
-      pkgs=$(npm_list_modules "$(npm root -g 2>/dev/null)" | missing_from "$wanted")
+      pkgs=$(npm_list_modules "$(npm_global_root)" | missing_from "$wanted")
       # shellcheck disable=SC2086
       [ -n "$pkgs" ] && act npm install -g $pkgs
+    elif is_windows && has npm; then
+      # nvm-windows and fnm have no ~/.nvm/versions: the globals go to the node in use.
+      pkgs=$(npm_list_modules "$(npm_global_root)" | missing_from "$wanted")
+      if [ -n "$pkgs" ]; then
+        dim "  $(t "globals of node %s go to the node in use here" "$version")"
+        # shellcheck disable=SC2086
+        act npm install -g $pkgs
+      fi
     elif [ -d "$dir/versions/node/$version" ] || [ -n "${DUDU_DRY_RUN:-}" ]; then
       pkgs=$(npm_list_modules "$dir/versions/node/$version/lib/node_modules" | missing_from "$wanted")
       # shellcheck disable=SC2086

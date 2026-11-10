@@ -21,8 +21,18 @@ choco_restore() {
     dim "  $(t "all packages already installed")"
     return 0
   fi
+  choco_needs_admin "dudu restore --only choco" || return 1
   # shellcheck disable=SC2086
-  act choco install -y --no-progress $pkgs
+  act choco install -y --no-progress $pkgs && win_installed
+}
+
+# Chocolatey installs for the whole machine: outside an administrator terminal it fails
+# halfway, so it is not started, and the way to open one is said.
+choco_needs_admin() { # <command to run again>
+  [ -n "${DUDU_DRY_RUN:-}" ] && return 0
+  win_is_admin && return 0
+  warn "$(t "Chocolatey needs an administrator terminal: right-click the terminal icon, pick Run as administrator, then run %s" "$1")"
+  return 1
 }
 
 choco_outdated() {
@@ -31,4 +41,4 @@ choco_outdated() {
 }
 
 choco_upgrade_hint() { echo "choco upgrade all -y"; }
-choco_upgrade() { choco upgrade -y "$1"; }
+choco_upgrade() { choco_needs_admin "dudu outdated" && choco upgrade -y "$1"; }

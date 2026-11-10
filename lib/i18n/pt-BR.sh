@@ -544,6 +544,15 @@ i18n_catalog_pt_BR() {
     "Task Scheduler could not create the task %s") I18N_MSG="O Agendador de Tarefas não conseguiu criar a tarefa %s" ;;
     "Install winget or scoop first, then run %s again") I18N_MSG="Instale o winget ou o scoop antes e rode %s de novo" ;;
     "Made on %s: Homebrew apps become winget and scoop packages, what has no equivalent is listed before restoring") I18N_MSG="Feito no %s: os apps do Homebrew viram pacotes winget e scoop, o que não tem equivalente é listado antes de restaurar" ;;
+    "%s is not a full path: use one like %s") I18N_MSG="%s não é um caminho completo: use um como %s" ;;
+    "Chocolatey needs an administrator terminal: right-click the terminal icon, pick Run as administrator, then run %s") I18N_MSG="O Chocolatey precisa de um terminal de administrador: clique com o botão direito no ícone do terminal, escolha Executar como administrador e rode %s" ;;
+    "Node %s was installed system-wide (winget, scoop or choco cover it)") I18N_MSG="O Node %s foi instalado no sistema (o winget, o scoop ou o choco já cobrem)" ;;
+    "Oh My Zsh left out: there is no zsh on this machine") I18N_MSG="Oh My Zsh deixado de fora: não há zsh nesta máquina" ;;
+    "Some installers ask for permission in a Windows window: answer Yes there, it may open behind this one.") I18N_MSG="Alguns instaladores pedem permissão numa janela do Windows: responda Sim nela, ela pode abrir atrás desta." ;;
+    "The Windows Credential Manager did not take the password: it is kept in %s") I18N_MSG="O Gerenciador de Credenciais do Windows não aceitou a senha: ela fica em %s" ;;
+    "To have node in new terminals, add fnm to your profile: %s") I18N_MSG="Para ter o node em novos terminais, adicione o fnm ao seu perfil: %s" ;;
+    "globals of node %s go to the node in use here") I18N_MSG="os globais do node %s vão para o node em uso aqui" ;;
+    "pyenv is not installed, skipping Python versions") I18N_MSG="o pyenv não está instalado, pulando as versões do Python" ;;
     *) return 1 ;;
   esac
 }

@@ -544,6 +544,15 @@ i18n_catalog_es() {
     "Task Scheduler could not create the task %s") I18N_MSG="El Programador de tareas no pudo crear la tarea %s" ;;
     "Install winget or scoop first, then run %s again") I18N_MSG="Instala winget o scoop primero y ejecuta %s de nuevo" ;;
     "Made on %s: Homebrew apps become winget and scoop packages, what has no equivalent is listed before restoring") I18N_MSG="Hecho en %s: las apps de Homebrew se vuelven paquetes winget y scoop, lo que no tiene equivalente se lista antes de restaurar" ;;
+    "%s is not a full path: use one like %s") I18N_MSG="%s no es una ruta completa: usa una como %s" ;;
+    "Chocolatey needs an administrator terminal: right-click the terminal icon, pick Run as administrator, then run %s") I18N_MSG="Chocolatey necesita una terminal de administrador: haz clic derecho en el icono de la terminal, elige Ejecutar como administrador y ejecuta %s" ;;
+    "Node %s was installed system-wide (winget, scoop or choco cover it)") I18N_MSG="Node %s se instaló en el sistema (winget, scoop o choco ya lo cubren)" ;;
+    "Oh My Zsh left out: there is no zsh on this machine") I18N_MSG="Oh My Zsh se dejó fuera: no hay zsh en esta máquina" ;;
+    "Some installers ask for permission in a Windows window: answer Yes there, it may open behind this one.") I18N_MSG="Algunos instaladores piden permiso en una ventana de Windows: responde Sí allí, puede abrirse detrás de esta." ;;
+    "The Windows Credential Manager did not take the password: it is kept in %s") I18N_MSG="El Administrador de credenciales de Windows no aceptó la contraseña: se guarda en %s" ;;
+    "To have node in new terminals, add fnm to your profile: %s") I18N_MSG="Para tener node en terminales nuevas, añade fnm a tu perfil: %s" ;;
+    "globals of node %s go to the node in use here") I18N_MSG="los globales de node %s van al node en uso aquí" ;;
+    "pyenv is not installed, skipping Python versions") I18N_MSG="pyenv no está instalado, omitiendo las versiones de Python" ;;
     *) return 1 ;;
   esac
 }
