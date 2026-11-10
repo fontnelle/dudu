@@ -1,6 +1,7 @@
 <p align="right"><b>macOS · Linux</b> · <a href="https://github.com/fontnelle/dudu/tree/windows">Windows</a></p>
 
 <div align="center">
+  <img src="./docs/img/banner.png" alt="dudu: máquina nova, mesmo ambiente. Faça backup de todo o seu ambiente de desenvolvimento com um comando e restaure com outro. Gratuito, para macOS, Linux e Windows" width="790" />
   <h1>dudu</h1>
   <p><b>Faça backup de todo o seu ambiente de desenvolvimento com um comando e devolva tudo numa máquina nova com outro. Pacotes, runtimes, dotfiles e terminal, no macOS e no Linux.</b></p>
   <p><a href="README.md">English</a> · Português · <a href="README.es.md">Español</a></p>
@@ -10,10 +11,6 @@
   <a href="https://github.com/fontnelle/dudu/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fontnelle/dudu/ci.yml?branch=main&label=tests&style=flat-square" alt="Testes"></a>
   <a href="#começando"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey?style=flat-square" alt="Plataforma"></a>
 </div>
-
-<p align="center">
-  <img src="./docs/img/backup.svg" alt="dudu backup: 9 ferramentas coletadas, criptografadas e salvas numa pasta local, no iCloud Drive e no Apple Notes" width="790" />
-</p>
 
 ## Recursos
 
