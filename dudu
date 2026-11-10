@@ -65,7 +65,7 @@ usage() {
   printf '%s %s\n' "$(t "Docs:")" "$DUDU_HOMEPAGE"
 }
 
-# shellcheck disable=SC2329 # called by name, through menu_select
+# shellcheck disable=SC2317,SC2329 # called by name, through menu_select
 main_header() {
   show_banner
   update_notice
