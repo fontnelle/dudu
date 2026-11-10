@@ -45,6 +45,7 @@ jobs:
     defaults:
       run:
         shell: bash
+    # Every step runs even after one fails: a run shows all that is wrong on Windows at once.
     steps:
       - uses: actions/checkout@v4
       - name: Install tools
@@ -56,6 +57,7 @@ jobs:
       # Not make test: Windows' make hands bats a D:/ path, and bats wants /d/.
       - run: bats tests/
       - name: Smoke test
+        if: ${{ !cancelled() }}
         env:
           DUDU_NO_UPDATE_CHECK: "1"
           NO_COLOR: "1"
@@ -65,15 +67,18 @@ jobs:
           ./dudu restore --dry-run --only shell,git,terminal
           ./dudu status --only shell,git,terminal
       - name: Real Windows APIs (registry, Credential Manager, Task Scheduler)
+        if: ${{ !cancelled() }}
         env:
           DUDU_REAL_WINDOWS: "1"
         run: bats tests/windows_real.bats
       - name: Smoke test (a Mac backup restored on Windows)
+        if: ${{ !cancelled() }}
         env:
           DUDU_NO_UPDATE_CHECK: "1"
           NO_COLOR: "1"
         run: ./dudu restore --file tests/fixtures/mac-bundle --dry-run -y
       - name: Installer in Git Bash (this checkout)
+        if: ${{ !cancelled() }}
         run: |
           bash -n install.sh
           bash install.sh --source "$PWD"
@@ -86,6 +91,7 @@ jobs:
           "$HOME/bin/dudu" --version
           ./dudu schedule status
       - name: The scheduled backup's hidden launcher makes a backup
+        if: ${{ !cancelled() }}
         env:
           DUDU_NO_UPDATE_CHECK: "1"
           NO_COLOR: "1"
@@ -106,6 +112,7 @@ jobs:
           ls "$dest"/*/latest || { tail -40 "$HOME/.cache/dudu/dudu.log"; exit 1; }
           ./dudu schedule off
       - name: install.ps1 from Windows PowerShell, then dudu from PowerShell and cmd
+        if: ${{ !cancelled() }}
         shell: powershell
         env:
           DUDU_NO_UPDATE_CHECK: "1"
@@ -121,6 +128,7 @@ jobs:
           cmd /c "dudu backup --only shell"
           if ($LASTEXITCODE -ne 0) { throw "dudu backup failed from cmd" }
       - name: install.ps1 from PowerShell 7, for a user folder with an accent and a space
+        if: ${{ !cancelled() }}
         shell: pwsh
         env:
           DUDU_NO_UPDATE_CHECK: "1"

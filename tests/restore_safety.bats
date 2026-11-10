@@ -103,6 +103,9 @@ BREW
 @test "oh my zsh plugin entries must be plain git URLs" {
   printf 'plugins/ok https://github.com/zsh-users/zsh-autosuggestions\nplugins/x --upload-pack=touch${IFS}/tmp/pwned\n../../.ssh https://github.com/a/b\n' > "$b/omz-custom.txt"
   mkdir -p "$HOME/.oh-my-zsh/custom/plugins"
+  # Plugins are only cloned where there is a zsh (Git Bash has none).
+  # shellcheck disable=SC2317,SC2329
+  has() { [ "$1" = zsh ] || command -v "$1" >/dev/null 2>&1; }
   DUDU_DRY_RUN=1 run shell_restore "$b"
   [[ "$output" == *"git clone --depth=1 -- https://github.com/zsh-users/zsh-autosuggestions"* ]] || false
   [[ "$output" == *"ignored suspicious plugin entry"* ]] || false
