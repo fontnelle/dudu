@@ -161,9 +161,16 @@ function Set-UserPath($add, $remove) {
 
 # A dudu entry in the Start menu, opening the menu in Windows Terminal, or in Git Bash's own
 # window where there is none: both show dudu's symbols right, which the old console may not.
+# The Start menu's folder. Windows gives none while that folder does not exist yet.
+function Get-StartMenuDir {
+  $d = [Environment]::GetFolderPath("Programs")
+  if (-not $d) { $d = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs" }
+  if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force $d | Out-Null }
+  $d
+}
+
 function Add-Shortcut($cmdFile, $bash) {
-  $programs = [Environment]::GetFolderPath("Programs")
-  $link = Join-Path $programs "dudu.lnk"
+  $link = Join-Path (Get-StartMenuDir) "dudu.lnk"
   $shell = New-Object -ComObject WScript.Shell
   $s = $shell.CreateShortcut($link)
   $gitRoot = Split-Path (Split-Path $bash)
@@ -240,9 +247,10 @@ if (Set-UserPath $libDir $oldBin) { Ok (Msg PathAdded) }
 if (-not (($env:Path -split ";") -contains $libDir)) { $env:Path = "$env:Path;$libDir" }
 if (Test-Path $oldBin) { Remove-Item -Recurse -Force (Split-Path $oldBin) -ErrorAction SilentlyContinue }
 
-try { Add-Shortcut $cmdFile $bash; Ok (Msg Shortcut) } catch { Note (Msg NoShortcut) }
+$inMenu = $true
+try { Add-Shortcut $cmdFile $bash; Ok (Msg Shortcut) } catch { $inMenu = $false; Note ((Msg NoShortcut) + ": " + $_.Exception.Message) }
 
 Write-Host ""
 Write-Host (Msg Done1) -ForegroundColor Green
-Write-Host (Msg DoneMenu)
+if ($inMenu) { Write-Host (Msg DoneMenu) }
 Write-Host (Msg DoneCmd)

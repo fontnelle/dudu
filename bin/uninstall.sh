@@ -6,7 +6,9 @@
 uninstall_windows_bits() {
   has powershell.exe || return 0
   DUDU_LIB=$(win_path "$DUDU_ROOT") powershell.exe -NoProfile -NonInteractive -Command '
-    Remove-Item (Join-Path ([Environment]::GetFolderPath("Programs")) "dudu.lnk") -ErrorAction SilentlyContinue
+    $menu = [Environment]::GetFolderPath("Programs")
+    if (-not $menu) { $menu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs" }
+    Remove-Item (Join-Path $menu "dudu.lnk") -ErrorAction SilentlyContinue
     $old = Join-Path $env:LOCALAPPDATA "dudu"
     $drop = @($env:DUDU_LIB, (Join-Path $old "bin")) | ForEach-Object { $_.TrimEnd("\") }
     $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
@@ -44,13 +46,15 @@ uninstall_program() {
   [ -f "$root/dudu" ] && [ -f "$root/lib/core/common.sh" ] || return 1
   case "$root" in "" | / | "$HOME") return 1 ;; esac
   cd / || return 1
-  rm -rf "$root" 2>/dev/null
-  if [ -d "$root" ] && is_windows && has powershell.exe; then
-    # Windows keeps the folder of a running program: it goes once this dudu has ended.
+  if is_windows && has powershell.exe; then
+    # Once this dudu has ended: dudu.cmd is still being read by cmd, which complains when
+    # the file goes away under it, and Windows keeps the folder of a running program.
     DUDU_LIB=$(win_path "$root") powershell.exe -NoProfile -NonInteractive -Command '
       Start-Process -WindowStyle Hidden cmd.exe -ArgumentList ("/c ping -n 4 127.0.0.1 >nul & rmdir /s /q `"" + $env:DUDU_LIB + "`"")
     ' >/dev/null 2>&1
+    return 0
   fi
+  rm -rf "$root" 2>/dev/null
   return 0
 }
 

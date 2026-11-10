@@ -20,6 +20,5 @@ for /f "tokens=2 delims=:" %%C in ('chcp 2^>nul') do set "DUDU_CP=%%C"
 if defined DUDU_CP set "DUDU_CP=%DUDU_CP: =%"
 if defined DUDU_CP set "DUDU_CP=%DUDU_CP:.=%"
 chcp 65001 >nul 2>&1
-rem One line: cmd reads a batch file line by line, and dudu uninstall deletes this file
-rem while it runs. What comes after dudu is already read by then.
+rem dudu uninstall removes this file only after it has ended: cmd reads it line by line.
 "%DUDU_BASH%" "%DUDU_DIR%dudu" %* & call set "DUDU_RC=%%ERRORLEVEL%%" & (if defined DUDU_CP chcp %DUDU_CP% >nul 2>&1) & call exit /b %%DUDU_RC%%
