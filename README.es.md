@@ -1,7 +1,6 @@
 <p align="right"><b>macOS · Linux</b> · <a href="https://github.com/fontnelle/dudu/tree/windows">Windows</a></p>
 
 <div align="center">
-  <img src="./docs/img/banner.png" alt="dudu: máquina nueva, mismo entorno. Respalda todo tu entorno de desarrollo con un comando y recupéralo con otro. Gratis, para macOS, Linux y Windows" width="790" />
   <h1>dudu</h1>
   <p><b>Respalda todo tu entorno de desarrollo con un comando y recupéralo en una máquina nueva con otro. Paquetes, runtimes, dotfiles y terminal, en macOS y Linux.</b></p>
   <p><a href="README.md">English</a> · <a href="README.pt-BR.md">Português</a> · Español</p>
@@ -11,6 +10,10 @@
   <a href="https://github.com/fontnelle/dudu/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fontnelle/dudu/ci.yml?branch=main&label=tests&style=flat-square" alt="Pruebas"></a>
   <a href="#primeros-pasos"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey?style=flat-square" alt="Plataforma"></a>
 </div>
+
+<p align="center">
+  <img src="./docs/img/banner.png" alt="dudu: máquina nueva, mismo entorno. Respalda todo tu entorno de desarrollo con un comando y recupéralo con otro. Gratis, para macOS, Linux y Windows" width="790" />
+</p>
 
 ## Funciones
 
