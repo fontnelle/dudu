@@ -19,6 +19,7 @@
 
 - **Tudo que você instalou pelo terminal**: Homebrew, apt/dnf/pacman, versões do Node, pacotes globais do npm/pnpm/yarn/bun, pyenv/pipx/uv, gems, cargo, ferramentas do go, extensões do VS Code e do Cursor
 - **Seu terminal, do jeito que estava**: zsh, Oh My Zsh e plugins, Powerlevel10k/Starship, perfis do Terminal.app e do iTerm2, Ghostty, Kitty, WezTerm, Nerd Fonts, config do git e do SSH
+- **Atualizações numa lista só**: o `dudu outdated` mostra o que está desatualizado no Homebrew, apt/dnf/pacman, Node, npm, Python, gems e cargo, e atualiza tudo ou só o que você escolher
 - **Salvo onde você já está**: pasta local, iCloud Drive, Google Drive e Apple Notes, vários ao mesmo tempo
 - **Segredos ficam em casa**: tokens nos dotfiles são mascarados, arquivos de chave nunca são copiados, e o `dudu secrets` tira as chaves do seu `.zshrc`
 - **Criptografado, se você quiser**: AES-256 com uma senha guardada no seu Keychain
@@ -59,6 +60,20 @@ dudu config          # destinos, idioma, criptografia, agendamento
 ```
 
 Todos os comandos aceitam `--dry-run` e `--only brew,node,...`. O `restore` também aceita `--from <máquina>` (backup de outro computador), `--file <pasta>` (backup copiado à mão) e `--yes`. Com `--debug`, cada passo vai para `~/.cache/dudu/dudu.log` (precisa de bash 4.1+).
+
+## Tudo atualizado
+
+<p align="center">
+  <img src="./docs/img/updates.png" alt="dudu outdated: todas as atualizações numa lista só. Atualizações do Homebrew, npm, Python e outros numa tela, e depois atualiza tudo ou escolhe" width="790" />
+</p>
+
+O `dudu outdated` pergunta a cada gerenciador de pacotes desta máquina o que tem versão nova e junta tudo numa lista só: Homebrew, apt/dnf/pacman, Node (a LTS mais nova para a sua versão padrão), npm, ferramentas Python, gems e cargo. A verificação só lê: nada é instalado ou atualizado sem perguntar.
+
+- **`a` atualiza tudo**, **`s` abre uma lista** para escolher os pacotes (setas para andar, Espaço para marcar, Enter para atualizar), **`n`** deixa tudo como está.
+- Os pacotes atualizam um de cada vez, com uma barra de progresso embaixo. Um que falha ou demora demais não para os outros, e a saída dele vai para `~/.cache/dudu/dudu.log`.
+- Quando algo foi atualizado, o dudu oferece um backup na hora, para o backup ficar igual à máquina.
+- Cada ferramenta mostra as 10 primeiras atualizações; `dudu outdated --all` mostra todas, e `--only brew,npm` verifica só essas ferramentas.
+- Fora de um terminal interativo (um script, o CI) ele não pergunta: mostra o comando de atualização de cada ferramenta.
 
 ## Máquina nova, passo a passo
 
@@ -132,6 +147,10 @@ Escolha **um ou mais** com `dudu config` ou `dudu config set destination icloud,
 Pule collectors com `dudu config set exclude macos,ruby`, ou fique só com alguns com `dudu config set include brew,node,shell`.
 
 ## Segurança
+
+<p align="center">
+  <img src="./docs/img/secrets.png" alt="dudu secrets: seus segredos ficam em casa. Tokens são mascarados, arquivos de chave nunca são copiados e todo backup pode ser criptografado" width="790" />
+</p>
 
 **Segredos não saem da sua máquina**
 
