@@ -21,6 +21,7 @@ dudu is written in bash, so on Windows it runs in **Git Bash** (part of Git for 
 
 - **Everything you installed**: winget, scoop and Chocolatey packages, Node versions (nvm-windows, fnm, volta), global npm/pnpm/yarn/bun packages, pipx/uv, gems, cargo, go tools, VS Code and Cursor extensions
 - **Your terminal, as it was**: Windows Terminal settings, PowerShell profiles, Git Bash (`.bashrc`, `.minttyrc`), Starship, Neovim, WezTerm, Alacritty, Nerd Fonts, git and SSH config
+- **Updates in one list**: `dudu outdated` shows what is outdated in winget, scoop, Chocolatey, Node, npm, Python, gems and cargo, then updates all of it or what you pick
 - **Saved where you already are**: a local folder, OneDrive, Google Drive and iCloud for Windows, several at once
 - **Moves between systems**: a Mac's backup restores here (Homebrew becomes winget and scoop), and a Windows backup restores on a Mac or Linux
 - **Secrets stay home**: tokens in your dotfiles are masked, key files are never copied, and `dudu secrets` moves keys out of your `.bashrc`
@@ -83,6 +84,20 @@ Every command takes `--dry-run` and `--only brew,node,...`. `restore` also takes
 **If something does not work**, run `dudu doctor`: it checks Git Bash, your package managers, the PATH, the Credential Manager, your destinations and the terminal, and says in plain words what to do about each. dudu's symbols need Windows Terminal (it comes with Windows 11) or Git Bash's own window; in the old Windows 10 console some may show as boxes, which the Start menu entry avoids.
 
 **Uninstall** with `dudu uninstall`: it removes the command, the Start menu entry and the scheduled backup, asks before deleting your settings, and never touches your backups.
+
+## Keeping everything up to date
+
+<p align="center">
+  <img src="./docs/img/updates.png" alt="dudu outdated: every update, one list. Updates from winget, npm, Python and more in one view, then update all or pick" width="790" />
+</p>
+
+`dudu outdated` asks each package manager on this machine what has a newer version and puts it all in one list: winget, scoop, Chocolatey, Node (the latest LTS for your default version), npm, Python tools, gems and cargo. The check only reads: nothing is installed or updated without asking.
+
+- **`a` updates everything**, **`s` opens a checklist** to pick packages (arrows to move, Space to mark, Enter to update), **`n`** leaves it all as it is.
+- Packages update one at a time, with a progress bar at the bottom. One that fails or times out does not stop the others, and its output goes to `~/.cache/dudu/dudu.log`.
+- When something was updated, dudu offers a backup right away, so the backup matches the machine.
+- Each tool shows its first 10 updates; `dudu outdated --all` shows them all, and `--only winget,npm` checks just those tools.
+- Outside an interactive terminal (a script, CI) it does not ask: it prints each tool's own update command.
 
 ## New machine, step by step
 
@@ -159,6 +174,10 @@ Pick **one or more** with `dudu config` or `dudu config set destination local,gd
 Skip collectors with `dudu config set exclude choco,ruby`, or keep only some with `dudu config set include brew,node,shell`.
 
 ## Security
+
+<p align="center">
+  <img src="./docs/img/secrets.png" alt="dudu secrets: your secrets stay home. Tokens are masked, key files are never copied, and every backup can be encrypted" width="790" />
+</p>
 
 **Secrets stay on your machine**
 

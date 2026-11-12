@@ -21,6 +21,7 @@ O dudu é escrito em bash, então no Windows ele roda no **Git Bash** (que vem c
 
 - **Tudo que você instalou**: pacotes do winget, do scoop e do Chocolatey, versões do Node (nvm-windows, fnm, volta), pacotes globais do npm/pnpm/yarn/bun, pipx/uv, gems, cargo, ferramentas do go, extensões do VS Code e do Cursor
 - **Seu terminal, do jeito que estava**: configurações do Windows Terminal, perfis do PowerShell, Git Bash (`.bashrc`, `.minttyrc`), Starship, Neovim, WezTerm, Alacritty, Nerd Fonts, config do git e do SSH
+- **Atualizações numa lista só**: o `dudu outdated` mostra o que está desatualizado no winget, scoop, Chocolatey, Node, npm, Python, gems e cargo, e atualiza tudo ou só o que você escolher
 - **Salvo onde você já está**: pasta local, OneDrive, Google Drive e iCloud para Windows, vários ao mesmo tempo
 - **Muda de sistema**: o backup de um Mac restaura aqui (o Homebrew vira winget e scoop), e um backup do Windows restaura num Mac ou no Linux
 - **Segredos ficam em casa**: tokens nos dotfiles são mascarados, arquivos de chave nunca são copiados, e o `dudu secrets` tira as chaves do seu `.bashrc`
@@ -83,6 +84,20 @@ Todos os comandos aceitam `--dry-run` e `--only brew,node,...`. O `restore` tamb
 **Se algo não funcionar**, rode `dudu doctor`: ele verifica o Git Bash, os gerenciadores de pacotes, o PATH, o Gerenciador de Credenciais, os destinos e o terminal, e diz em linguagem simples o que fazer em cada caso. Os símbolos do dudu precisam do Windows Terminal (que já vem no Windows 11) ou da janela do próprio Git Bash; no console antigo do Windows 10 alguns podem aparecer como quadradinhos, o que o atalho do Menu Iniciar evita.
 
 **Para desinstalar**, use `dudu uninstall`: ele remove o comando, o atalho do Menu Iniciar e o backup agendado, pergunta antes de apagar as suas configurações e nunca toca nos seus backups.
+
+## Tudo atualizado
+
+<p align="center">
+  <img src="./docs/img/updates.png" alt="dudu outdated: todas as atualizações numa lista só. Atualizações do winget, npm, Python e outros numa tela, e depois atualiza tudo ou escolhe" width="790" />
+</p>
+
+O `dudu outdated` pergunta a cada gerenciador de pacotes desta máquina o que tem versão nova e junta tudo numa lista só: winget, scoop, Chocolatey, Node (a LTS mais nova para a sua versão padrão), npm, ferramentas Python, gems e cargo. A verificação só lê: nada é instalado ou atualizado sem perguntar.
+
+- **`a` atualiza tudo**, **`s` abre uma lista** para escolher os pacotes (setas para andar, Espaço para marcar, Enter para atualizar), **`n`** deixa tudo como está.
+- Os pacotes atualizam um de cada vez, com uma barra de progresso embaixo. Um que falha ou demora demais não para os outros, e a saída dele vai para `~/.cache/dudu/dudu.log`.
+- Quando algo foi atualizado, o dudu oferece um backup na hora, para o backup ficar igual à máquina.
+- Cada ferramenta mostra as 10 primeiras atualizações; `dudu outdated --all` mostra todas, e `--only winget,npm` verifica só essas ferramentas.
+- Fora de um terminal interativo (um script, o CI) ele não pergunta: mostra o comando de atualização de cada ferramenta.
 
 ## Máquina nova, passo a passo
 
@@ -159,6 +174,10 @@ Escolha **um ou mais** com `dudu config` ou `dudu config set destination local,g
 Pule collectors com `dudu config set exclude choco,ruby`, ou fique só com alguns com `dudu config set include brew,node,shell`.
 
 ## Segurança
+
+<p align="center">
+  <img src="./docs/img/secrets.png" alt="dudu secrets: seus segredos ficam em casa. Tokens são mascarados, arquivos de chave nunca são copiados e todo backup pode ser criptografado" width="790" />
+</p>
 
 **Segredos não saem da sua máquina**
 
